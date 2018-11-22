@@ -1,6 +1,7 @@
 
 import numpy as np
 import tensorflow as tf
+from tensorflow.python.layers import core as layers_core
 
 
 class Seq2SeqBot(object):
@@ -9,8 +10,12 @@ class Seq2SeqBot(object):
         self.max_sentence_len = config.max_sentence_len
 
         self.sess = sess
+        self.vocab_size = len(word2vec)
         self.word2vec = word2vec
-        self.target_sequence_length = config.target_sequence_length
+
+        # hyperparams
+        self.max_gradient_norm = 0.1 # TODO set this to something reasonable
+        self.learning_rate = 0.1 # TODO set this to something reasonable
 
     def build_model(self):
         """ build the computation graph
@@ -30,7 +35,7 @@ class Seq2SeqBot(object):
             self.sentence_lens = tf.placeholder(tf.int32, None)
             self.response_sentence = tf.placeholder(
                     tf.int32, [None, self.max_sentence_len])
-            self.response_lens = tf.placeholder(tf.int32, None)
+            self.response_lens = tf.placeholder(tf.int32, shape=[None])
 
             # embedding input
             encoder_embedding_input = tf.nn.embedding_lookup(
@@ -72,35 +77,36 @@ class Seq2SeqBot(object):
             # helper
             helper = tf.contrib.seq2seq.TrainingHelper(
                     encoder_outputs,
-                    self.response_len, time_major=True)
+                    self.response_lens, time_major=True)
 
             # decoder
+            projection_layer = layers_core.Dense(self.vocab_size,
+                    use_bias=False)
             decoder = tf.contrib.seq2seq.BasicDecoder(
                     decoder_cell,
                     helper,
                     encoder_final_state,
+                    output_layer=projection_layer
                     )
 
             # dynamic decoding
-            outputs, _ = tf.contrib.seq2seq.dynamic_decode(decoder, ...)
+            outputs, final_state, final_sequence_lengths = \
+                tf.contrib.seq2seq.dynamic_decode(decoder)
             logits = outputs.rnn_output
 
         # loss
-        crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(
-                labels=outputs, logits=logits)
-        # TODO make target weights matrix
-        train_loss = (tf.reduce_sum(crossent * target_weights) / batch_size)
+        loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
+                labels=self.response_sentence, logits=logits)
 
-        # calculate and clip gradients
         params = tf.trainable_variables()
-        gradients = tf.gradients(train_loss, params)
-        # TODO set max gradient norm
+        gradients = tf.gradients(loss, params)
         clipped_gradients, _ = tf.clip_by_global_norm(
-                gradients, max_gradient_norm)
+                gradients, self.max_gradient_norm)
 
         # optimizer
-        # TODO set learning rate
-        optimizer = tf.train.AdamOptimizer(learning_rate)
-        update_step = optimizer.apply_gradients(
-                zip(clipped_gradients, params))
+        optimizer = tf.train.AdamOptimizer(self.learning_rate)
+        global_step = tf.Variable(0, name='global_step', trainable=False)
+        train_op = optimizer.apply_gradients(
+                zip(clipped_gradients, params), global_step=global_step)
+
 
