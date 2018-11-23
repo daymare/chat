@@ -6,7 +6,7 @@ import tensorflow as tf
 import numpy as np
 
 from load_util import load_word_embeddings, load_dataset
-from data_util import get_data_info
+from data_util import get_data_info, convert_to_id
 
 from chatbot import Seq2SeqBot
 
@@ -60,6 +60,9 @@ def main(_):
             FLAGS.embedding_dim, word2id)
     logging.debug('word2vec type: %s' % type(word2vec))
 
+    # convert dataset to integer ids
+    dataset = convert_to_id(dataset, word2id)
+
     # split into train and test
     train_size = int(len(dataset) * 0.9)
     train_data = dataset[:train_size]
@@ -70,7 +73,7 @@ def main(_):
         model = Seq2SeqBot(FLAGS, sess, word2vec)
         model.build_model()
 
-        model.run(train_data, test_data)
+        model.train(train_data, test_data)
 
 if __name__ == '__main__':
     tf.app.run()

@@ -16,6 +16,8 @@ class Seq2SeqBot(object):
         # hyperparams
         self.max_gradient_norm = 0.1 # TODO set this to something reasonable
         self.learning_rate = 0.1 # TODO set this to something reasonable
+        self.train_steps = 10000
+        self.batch_size = 32
 
     def build_model(self):
         """ build the computation graph
@@ -31,11 +33,15 @@ class Seq2SeqBot(object):
 
         with tf.name_scope('inputs'):
             self.sentences = tf.placeholder(
-                    tf.int32, [None, 2, self.max_sentence_len])
-            self.sentence_lens = tf.placeholder(tf.int32, None)
+                    tf.int32, [None, 2, self.max_sentence_len],
+                    name="sentences")
+            self.sentence_lens = tf.placeholder(tf.int32, [None, 2],
+                    name="sentence_lens")
             self.response_sentence = tf.placeholder(
-                    tf.int32, [None, self.max_sentence_len])
-            self.response_lens = tf.placeholder(tf.int32, shape=[None])
+                    tf.int32, [None, self.max_sentence_len],
+                    name="response_sentence")
+            self.response_lens = tf.placeholder(tf.int32, shape=[None],
+                    name="response_lens")
 
             # embedding input
             encoder_embedding_input = tf.nn.embedding_lookup(
@@ -95,7 +101,7 @@ class Seq2SeqBot(object):
             logits = outputs.rnn_output
 
         # loss
-        loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
+        self.loss = loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
                 labels=self.response_sentence, logits=logits)
 
         params = tf.trainable_variables()
@@ -106,7 +112,37 @@ class Seq2SeqBot(object):
         # optimizer
         optimizer = tf.train.AdamOptimizer(self.learning_rate)
         global_step = tf.Variable(0, name='global_step', trainable=False)
-        train_op = optimizer.apply_gradients(
+        self.train_op = train_op = optimizer.apply_gradients(
                 zip(clipped_gradients, params), global_step=global_step)
+
+    def train(self, training_data, test_data):
+        """
+        """
+        print(training_data[0][0:5])
+        for i in range(self.train_steps):
+            # create next batch
+            input_sentences = []
+            sentence_lens = []
+            responses = []
+            response_lens = []
+            for j in range(self.batch_size):
+                next_sentences, next_response = get_sample(training_data)
+                input_sentences.append(next_sentences)
+                sentence_lens.append((len(next_sentences[0]), 
+                                      len(next_sentences[1])))
+                responses.append(next_response)
+                response_lens.append(len(next_response))
+
+            # set up feed dict
+            feed_dict = {
+                    sentences: input_sentences,
+                    sentence_lens: sentence_lens,
+                    response_sentence: responses,
+                    response_lens: response_lens
+            }
+
+            # run iteration
+            _, _ = self.sess.run([self.train_op, self.loss], 
+                                 feed_dict=feed_dict)
 
 
