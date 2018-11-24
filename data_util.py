@@ -1,6 +1,17 @@
+import random
+import numpy as np
 
+def sentence_to_np(sentence, max_sentence_len):
+    # TODO add stop word to the end of all sentences (I think it is 0)
+    #  haha np zeros makes sure of this
+    np_sentence = np.zeros(max_sentence_len, dtype=np.int32)
 
-def get_sample(dataset):
+    for i in range(len(sentence)):
+        np_sentence[i] = sentence[i]
+
+    return np_sentence
+
+def get_sample(dataset, max_sentence_len):
     """ get a single sample from the dataset at random
 
     input:
@@ -14,11 +25,11 @@ def get_sample(dataset):
     movie = dataset[random.randint(0, len(dataset)-1)]
     
     # choose a random start sentence
-    start_point = random.randint(0, len(movie)-3)
-    sentences = (movie[start_point], movie[start_point+1])
-    response = movie[start_point + 2]
+    start_point = random.randint(0, len(movie)-2)
+    sentence = sentence_to_np(movie[start_point], max_sentence_len)
+    response = sentence_to_np(movie[start_point + 1], max_sentence_len)
 
-    return (sentences, response)
+    return sentence, response
 
 
 def convert_to_id(dataset, word2id):
