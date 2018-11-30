@@ -28,8 +28,10 @@ def get_sample(dataset, max_sentence_len):
     start_point = random.randint(0, len(movie)-2)
     sentence = sentence_to_np(movie[start_point], max_sentence_len)
     response = sentence_to_np(movie[start_point + 1], max_sentence_len)
+    sentence_len = len(movie[start_point])
+    response_len = len(movie[start_point+1])
 
-    return sentence, response
+    return sentence, response, sentence_len, response_len
 
 
 def convert_to_id(dataset, word2id):
