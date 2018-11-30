@@ -72,9 +72,10 @@ def main(_):
     # run training
     with tf.Session() as sess:
         model = Seq2SeqBot(FLAGS, sess, word2vec)
-        model.build_model()
-        model.train(train_data, test_data)
-        #model.run_eager(train_data, test_data)
+        #model.build_model()
+        #sess.run(tf.global_variables_initializer())
+        #model.train(train_data, test_data)
+        model.run_eager(train_data, test_data)
 
 if __name__ == '__main__':
     tf.app.run()
