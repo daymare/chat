@@ -10,7 +10,7 @@ from data_util import get_data_info, convert_to_id
 
 from chatbot import Seq2SeqBot
 
-tf.enable_eager_execution()
+#tf.enable_eager_execution()
 
 
 FLAGS = tf.app.flags.FLAGS
@@ -72,10 +72,10 @@ def main(_):
     # run training
     with tf.Session() as sess:
         model = Seq2SeqBot(FLAGS, sess, word2vec)
-        #model.build_model()
+        model.build_model()
         #sess.run(tf.global_variables_initializer())
         #model.train(train_data, test_data)
-        model.run_eager(train_data, test_data)
+        #model.run_eager(train_data, test_data)
 
 if __name__ == '__main__':
     tf.app.run()
