@@ -5,7 +5,9 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.layers import core as layers_core
 
-from data_util import get_sample
+import sys
+
+from data_util import get_training_batch
 
 
 class Seq2SeqBot(object):
@@ -37,10 +39,16 @@ class Seq2SeqBot(object):
         sentence_lens = tf.cast(sentence_lens, tf.int32)
         response_lens = tf.cast(response_lens, tf.int32)
 
+        # put placeholders into self for feed dict
+        self.sentences = sentences
+        self.responses = responses
+        self.sentence_lens = sentence_lens
+        self.response_lens = response_lens
+
         # start to build the thing
         logging.debug("word2vec shape: " + str(self.word2vec.shape))
         logging.debug("sentences shape: " + str(sentences.shape))
-        logging.debug("response: " + str(responses))
+        logging.debug("responses: " + str(responses))
         logging.debug("sentence_lens: " + str(sentence_lens))
         #logging.debug("response_lens: " + str(response_lens))
 
@@ -100,10 +108,17 @@ class Seq2SeqBot(object):
             outputs, final_state, final_sequence_lengths = \
                     tf.contrib.seq2seq.dynamic_decode(decoder)
             logits = outputs.rnn_output
+
+            # 0 pad logits to match shape of labels
+            pad = tf.subtract(self.max_sentence_len, tf.shape(logits)[1])
+            paddings = [[0, 0], [0, pad], [0, 0]]
+            logits = tf.pad(logits, paddings, "CONSTANT", constant_values=0)
+
             logging.debug("outputs: " + str(outputs))
             logging.debug("final state: " + str(final_state))
             logging.debug("final sequence lengths: " + str(final_sequence_lengths))
             logging.debug("logits: " + str(logits))
+            logging.debug("logits[:-1]: " + str(logits.shape[:-1]))
 
         loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
                 labels=responses, logits=logits)
@@ -118,6 +133,32 @@ class Seq2SeqBot(object):
         global_step = tf.Variable(0, name='global_step', trainable=False)
         self.train_op = train_op = optimizer.apply_gradients(
                 zip(clipped_gradients, params), global_step=global_step)
+
+    def train(self, training_data, test_data, num_epochs=10000):
+        print("entering train function")
+
+        for i in range(num_epochs):
+            if i % 80 == 0:
+                print()
+            print('.', end='')
+
+            # get training batch
+            sentences, responses, sentence_lens, response_lens = \
+                get_training_batch(training_data, self.batch_size, 
+                        self.max_sentence_len)
+
+            sys.stdout.flush()
+
+            # feed into model
+            feed_dict = {
+                    self.sentences: sentences,
+                    self.responses: responses,
+                    self.sentence_lens: sentence_lens,
+                    self.response_lens: response_lens
+                    }
+            
+            self.sess.run([self.train_op], feed_dict=feed_dict)
+
 
     def run_eager(self, training_data, test_data):
         # setup inputs
