@@ -19,9 +19,9 @@ FLAGS = tf.app.flags.FLAGS
 # TODO default flag for metadata filepath
 
 # dataset flags
-tf.app.flags.DEFINE_boolean('load_dataset', True, 'load the dataset from pickle?')
-tf.app.flags.DEFINE_string('dataset_folder', './data/OpenSubtitles', 
-        'folder containing the dataset')
+tf.app.flags.DEFINE_boolean('load_dataset', False, 'load the dataset from pickle?')
+tf.app.flags.DEFINE_string('dataset_file', './data/persona_data.txt',
+        'file containing the dataset')
 tf.app.flags.DEFINE_string('pickle_filepath', './data/dataset.pickle',
         'filepath to the saved dataset pickle')
 tf.app.flags.DEFINE_integer('embedding_dim', '300', 
@@ -44,9 +44,19 @@ logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 def main(_):
     # load training data
     print('loading training data')
-    dataset = load_dataset(FLAGS.dataset_folder, FLAGS.pickle_filepath,
+    dataset = load_dataset(FLAGS.dataset_file, FLAGS.pickle_filepath,
             FLAGS.load_dataset)
     logging.debug('dataset size: %i' % len(dataset))
+
+    # print out a sample
+    print("sample chat:")
+    for persona_sentence in dataset[0].your_persona:
+        print("your persona: ",persona_sentence)
+    for persona_sentence in dataset[0].partner_persona:
+        print("partner_persona: ", persona_sentence)
+    for partner_sentence, your_sentence in dataset[0].chat:
+        print("partner: ", partner_sentence)
+        print("you: ", your_sentence)
 
     # load metadata
     print('loading metadata')
