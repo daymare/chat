@@ -6,7 +6,7 @@ import tensorflow as tf
 import numpy as np
 
 from load_util import load_word_embeddings, load_dataset
-from data_util import get_data_info, convert_to_id
+from data_util import get_data_info, convert_to_id, pre_process_dataset
 
 from chatbot import Seq2SeqBot
 
@@ -22,8 +22,15 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_boolean('load_dataset', True, 'load the dataset from pickle?')
 tf.app.flags.DEFINE_string('dataset_folder', './data/OpenSubtitles', 
         'folder containing the dataset')
-tf.app.flags.DEFINE_string('pickle_filepath', './data/dataset.pickle',
+tf.app.flags.DEFINE_string('raw_dataset_pickle_filepath', './data/dataset.pickle',
         'filepath to the saved dataset pickle')
+
+tf.app.flags.DEFINE_boolean('load_processed_dataset', False, 
+        'load the post_processed dataset from pickle')
+tf.app.flags.DEFINE_string('processed_dataset_pickle_filepath', './data/processed_data.pickle',
+        'filepath to the saved processed dataset pickle')
+
+
 tf.app.flags.DEFINE_integer('embedding_dim', '300', 
         'number of dimensions of word embeddings')
 tf.app.flags.DEFINE_string('embedding_fname', 'data/glove.6B.300d.txt',
@@ -42,11 +49,20 @@ logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 
 def main(_):
-    # load training data
-    print('loading training data')
-    dataset = load_dataset(FLAGS.dataset_folder, FLAGS.pickle_filepath,
-            FLAGS.load_dataset)
-    logging.debug('dataset size: %i' % len(dataset))
+    dataset = None
+
+    if FLAGS.load_processed_dataset == True:
+        print('loading pre_processed data')
+        dataset = load_pre_processed(FLAGS.processed_dataset_pickle_filepath)
+    else:
+        # load training data
+        print('loading training data')
+        dataset = load_dataset(FLAGS.dataset_folder, FLAGS.raw_dataset_pickle_filepath,
+                FLAGS.load_dataset)
+        logging.debug('dataset size: %i' % len(dataset))
+
+        # perform pre-processing
+        dataset = pre_process_dataset(dataset, FLAGS.processed_dataset_pickle_filepath)
 
     # load metadata
     print('loading metadata')
@@ -54,6 +70,9 @@ def main(_):
     FLAGS.max_sentence_len = max_sentence_len
     logging.debug('max sentence len: %i' % max_sentence_len)
     logging.debug('word2id size: %i' % len(word2id))
+
+    print('done for now!')
+    return
 
     # load word vectors
     print('loading word vectors')
@@ -71,11 +90,13 @@ def main(_):
 
     # run training
     with tf.Session() as sess:
+        """
         model = Seq2SeqBot(FLAGS, sess, word2vec)
         model.build_model()
-        #sess.run(tf.global_variables_initializer())
-        #model.train(train_data, test_data)
+        sess.run(tf.global_variables_initializer())
+        model.train(train_data, test_data)
         #model.run_eager(train_data, test_data)
+        """
 
 if __name__ == '__main__':
     tf.app.run()

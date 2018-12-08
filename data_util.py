@@ -116,7 +116,7 @@ def maintain_maxes(maxes, new_value, max_maxes=1000):
     if len(maxes) > max_maxes:
         heapq.heappop(maxes)
 
-def pre_process_dataset(data):
+def pre_process_dataset(data, pickle_filepath=None):
     """ Clean up the dataset
 
     further split on punctuation
@@ -126,6 +126,28 @@ def pre_process_dataset(data):
     """
     # TODO save to file
     # TODO load from file
+
+    # save to dummy file
+    dummy = open('dummy.txt', 'w')
+
+    for movie in data[:100]:
+        dummy.write("================================================================\n")
+        for sentence in movie:
+            dummy.write(str(sentence) + "\n")
+
+    # TODO
+    # remove punctuation
+    #   - , . ' " : ; ! ? 
+    # recombine truncations ("I'", 'il' -> "I'll")
+    #   anything ending in an apostrophe just get's merged with the next token?
+    # recombine dashed things ('T-', 'shirts' -> 'T-shirts')
+    # remove special characters
+    # break up songs
+    # break up subtitles with more than one sentence
+
+    return data
+
+def load_pre_processed(pickle_filepath):
     pass
 
 def get_data_info(data, save_fname='./data/data_info.txt', 
@@ -166,8 +188,10 @@ def get_data_info(data, save_fname='./data/data_info.txt',
             max_sentence_len = max(len(subtitle), max_sentence_len)
             maintain_maxes(maxes, sentence_length)
 
+            """
             if sentence_length > forced_max_sentence_len:
                 print(subtitle)
+            """
 
             for word in subtitle:
                 # add word to id dictionary
