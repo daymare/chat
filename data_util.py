@@ -104,19 +104,6 @@ def convert_to_id(dataset, word2id):
 
     return converted_dataset
 
-
-def pre_process_dataset(data):
-    """ Clean up the dataset
-
-    further split on punctuation
-    remove songs
-    remove special characters
-
-    """
-    # TODO save to file
-    # TODO load from file
-    pass
-
 def get_data_info(data, save_fname='./data/data_info.txt', 
         pre_processed=False):
     """
