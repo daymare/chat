@@ -104,6 +104,22 @@ def convert_to_id(dataset, word2id):
 
     return converted_dataset
 
+
+def print_chat(chat):
+    """ print out the contents of a chat
+
+    input:
+        Chat object to print
+    """
+    print("sample chat:")
+    for persona_sentence in chat.your_persona:
+        print("your persona: ",persona_sentence)
+    for persona_sentence in chat.partner_persona:
+        print("partner_persona: ", persona_sentence)
+    for partner_sentence, your_sentence in chat.chat:
+        print("partner: ", partner_sentence)
+        print("you: ", your_sentence)
+
 def get_data_info(data, save_fname='./data/data_info.txt', 
         pre_processed=False):
     """

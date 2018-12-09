@@ -48,16 +48,6 @@ def main(_):
             FLAGS.load_dataset)
     logging.debug('dataset size: %i' % len(dataset))
 
-    # print out a sample
-    print("sample chat:")
-    for persona_sentence in dataset[0].your_persona:
-        print("your persona: ",persona_sentence)
-    for persona_sentence in dataset[0].partner_persona:
-        print("partner_persona: ", persona_sentence)
-    for partner_sentence, your_sentence in dataset[0].chat:
-        print("partner: ", partner_sentence)
-        print("you: ", your_sentence)
-
     # load metadata
     print('loading metadata')
     word2id, max_sentence_len = get_data_info(dataset)
