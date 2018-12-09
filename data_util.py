@@ -105,17 +105,6 @@ def convert_to_id(dataset, word2id):
     return converted_dataset
 
 
-def maintain_maxes(maxes, new_value, max_maxes=1000):
-    """ maintain a minheap of max values of the list
-        
-        inputs:
-            maxes - minheap of max values in the heap
-            new_value - new value to be evaluated
-    """
-    heapq.heappush(maxes, new_value)
-    if len(maxes) > max_maxes:
-        heapq.heappop(maxes)
-
 def pre_process_dataset(data):
     """ Clean up the dataset
 
@@ -148,37 +137,20 @@ def get_data_info(data, save_fname='./data/data_info.txt',
     # TODO load from savefile
     # TODO build vocabulary?
 
-    # find next couple maxes of sentence lens
-    # find average sentence len
-    maxes = []
-    sum_sentence_lens = 0
-    num_sentences = 0
-    forced_max_sentence_len = 100
+    # extract metadata from data
+    for chat in data:
+        for partner_sentence, your_sentence in chat.chat:
+            partner_len = len(partner_sentence)
+            your_len = len(your_sentence)
 
-    # extract metadata from file
-    for movie in data:
-        for subtitle in movie:
-            # update max sentence length
-            sentence_length = len(subtitle)
-            sum_sentence_lens += sentence_length
-            num_sentences += 1
+            max_sentence_len = max(partner_len,  max_sentence_len)
+            max_sentence_len = max(your_len,  max_sentence_len)
 
-            max_sentence_len = max(len(subtitle), max_sentence_len)
-            maintain_maxes(maxes, sentence_length)
-
-            if sentence_length > forced_max_sentence_len:
-                print(subtitle)
-
-            for word in subtitle:
+            for word in your_sentence + partner_sentence:
                 # add word to id dictionary
                 if word not in word2id and ' ' not in word:
                     word2id[word] = len(word2id)
 
     # TODO save to savefile
-    average_sentence_len = sum_sentence_lens / num_sentences
-
-    # print out maxes and average sentence len
-    print("average sentence len: " + str(average_sentence_len))
-    print("maxes: " + str(list(reversed(sorted(maxes)))))
 
     return word2id, max_sentence_len
