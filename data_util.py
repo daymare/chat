@@ -1,7 +1,9 @@
 import random
 import numpy as np
 
-import heapq
+
+from load_util import Chat
+
 
 def sentence_to_np(sentence, max_sentence_len):
     # TODO add stop word to the end of all sentences (I think it is 0)
@@ -84,7 +86,7 @@ def convert_to_id(dataset, word2id):
     takes dataset and converts all words to ids
 
     input:
-        dataset - list of movies, where movies are lists of sentences
+        dataset - list of chats
         word2id - dictionary of word -> int
     output:
         dataset with all words replaced by their integer ids
@@ -92,15 +94,40 @@ def convert_to_id(dataset, word2id):
     # TODO might require some pre-processing
     converted_dataset = []
 
-    for movie in dataset:
-        converted_movie = []
-        for sentence in movie:
+    for chat in dataset:
+        converted_chat = Chat()
+
+        # convert self persona
+        for sentence in chat.your_persona:
+            converted_sentence = []
+            for word in sentence:
+                try:
+                    converted_sentence.append(word2id[word])
+                except:
+                    print(sentence)
+            converted_chat.your_persona.append(converted_sentence)
+
+        # convert partner persona
+        for sentence in chat.partner_persona:
             converted_sentence = []
             for word in sentence:
                 converted_sentence.append(word2id[word])
+            converted_chat.partner_persona.append(converted_sentence)
 
-            converted_movie.append(converted_sentence)
-        converted_dataset.append(converted_movie)
+        # convert chat
+        for partner_sentence, your_sentence in chat.chat:
+            partner_converted = []
+            your_converted = []
+
+            for word in partner_sentence:
+                partner_converted.append(word2id[word])
+
+            for word in your_sentence:
+                your_converted.append(word2id[word])
+
+            converted_chat.chat.append((partner_converted, your_converted))
+
+        converted_dataset.append(converted_chat)
 
     return converted_dataset
 
@@ -142,6 +169,28 @@ def get_data_info(data, save_fname='./data/data_info.txt',
 
     # extract metadata from data
     for chat in data:
+        # get metadata from personas
+        for sentence in chat.your_persona:
+            sentence_len = len(sentence)
+
+            max_sentence_len = max(sentence_len, max_sentence_len)
+
+            for word in sentence:
+                # add word to dictionary
+                if word not in word2id and ' ' not in word:
+                    word2id[word] = len(word2id)
+
+        for sentence in chat.partner_persona:
+            sentence_len = len(sentence)
+
+            max_sentence_len = max(sentence_len, max_sentence_len)
+
+            for word in sentence:
+                # add word to dictionary
+                if word not in word2id and ' ' not in word:
+                    word2id[word] = len(word2id)
+
+        # get metadata from chat
         for partner_sentence, your_sentence in chat.chat:
             partner_len = len(partner_sentence)
             your_len = len(your_sentence)
@@ -155,5 +204,4 @@ def get_data_info(data, save_fname='./data/data_info.txt',
                     word2id[word] = len(word2id)
 
     # TODO save to savefile
-
     return word2id, max_sentence_len
