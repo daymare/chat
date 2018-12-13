@@ -6,6 +6,8 @@ import shutil
 import xml.etree.ElementTree as ET
 from collections import Counter
 
+import re
+
 from errno import ENOENT
 
 import numpy as np
@@ -40,18 +42,23 @@ def load_dataset(dataset_filepath, pickle_file_location, load_from_pickle=True,
     chats = []
     current_chat = Chat()
     # append first persona line
-    current_chat.your_persona.append(data[0].split()[3:]) 
+    first_words = pre_process_line(data[0])
+    current_chat.your_persona.append(first_words[3:]) 
 
     # skip first line since we have done it already
     # skip last line since it is empty
     for i in range(1, len(data)-1):
         line = data[i]
-        words = line.split()
+        words = pre_process_line(line)
+
+        # debug printout
+        # should never have less than 3 words on a line
         if len(words) < 3:
             print("i = ", i)
             print("last 5 lines")
-            print(data[i-5:i+1])
-            print("line in question: ", data[i+1])
+            print(data[i-5:i])
+            print("words: ", words)
+            print("line in question: ", data[i])
 
         if words[0] == "1":
             # start next chat
@@ -78,6 +85,10 @@ def load_dataset(dataset_filepath, pickle_file_location, load_from_pickle=True,
         pickle.dump(chats, f)
 
     return chats
+
+def pre_process_line(line):
+    words = re.findall(r"[\w,:']+|[.!?;]", line)
+    return words
 
 def load_word_embeddings(fname, embedding_dim, word2id):
     if os.path.isfile(fname) == False:
