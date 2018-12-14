@@ -21,21 +21,27 @@ def get_sample(dataset, max_sentence_len):
     input:
         dataset to sample from
     output:
-        (input_sentences,  - 2 sentences
+        input sentence - 1 sentence
         response_sentence - response sentence
-        )
+        sentence_len - length of the input sentence
+        response_len - length of the response sentence
     """
-    # choose a random movie
-    movie = dataset[random.randint(0, len(dataset)-1)]
-    
-    # choose a random start sentence
-    start_point = random.randint(0, len(movie)-2)
-    sentence = sentence_to_np(movie[start_point], max_sentence_len)
-    response = sentence_to_np(movie[start_point + 1], max_sentence_len)
-    sentence_len = len(movie[start_point])
-    response_len = len(movie[start_point+1])
+    # choose a random chat
+    chat = dataset[random.randint(0, len(dataset)-1)]
+    conversation = chat.chat
 
-    return sentence, response, sentence_len, response_len
+    # choose a random piece of that conversation
+    index = random.randint(0, len(conversation)-1)
+    
+    # get the exchange
+    sentence = conversation[index][0]
+    response = conversation[index][1]
+    np_sentence = sentence_to_np(sentence, max_sentence_len)
+    np_response = sentence_to_np(response, max_sentence_len)
+    sentence_len = len(sentence)
+    response_len = len(response)
+    
+    return np_sentence, np_response, sentence_len, response_len
 
 def get_training_batch(dataset, batch_size, max_sentence_len):
     """ build a batch of training data
