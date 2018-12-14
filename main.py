@@ -62,9 +62,11 @@ def main(_):
     logging.debug('word2vec type: %s' % type(word2vec))
 
     # convert dataset to integer ids
+    print('converting dataset to ids')
     dataset = convert_to_id(dataset, word2id)
 
     # split into train and test
+    print('splitting dataset')
     train_size = int(len(dataset) * 0.9)
     train_data = dataset[:train_size]
     test_data = dataset[train_size:] # test is remainder after training
@@ -73,8 +75,8 @@ def main(_):
     with tf.Session() as sess:
         model = Seq2SeqBot(FLAGS, sess, word2vec)
         model.build_model()
-        #sess.run(tf.global_variables_initializer())
-        #model.train(train_data, test_data)
+        sess.run(tf.global_variables_initializer())
+        model.train(train_data, test_data)
         #model.run_eager(train_data, test_data)
 
 if __name__ == '__main__':

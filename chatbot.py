@@ -138,8 +138,9 @@ class Seq2SeqBot(object):
         print("entering train function")
 
         for i in range(num_epochs):
-            if i % 80 == 0:
+            if i % 50 == 0:
                 print()
+                print("epoch: ", i, " ", end='')
             print('.', end='')
 
             # get training batch
