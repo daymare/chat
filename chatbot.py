@@ -26,6 +26,13 @@ class Seq2SeqBot(object):
         self.train_steps = 10000
         self.batch_size = 32
 
+        # build model
+        self.build_model()
+
+        # file writer
+        self.writer = tf.summary.FileWriter('./train', sess.graph)
+
+
     def build_model(self):
         # placeholders for input
         sentences = tf.placeholder(tf.int32, shape=(self.batch_size, self.max_sentence_len))
@@ -65,6 +72,7 @@ class Seq2SeqBot(object):
                     self.n_hidden,
                     initializer = tf.orthogonal_initializer()
                     )
+
             logging.debug("encoder cell: " + str(encoder_cell))
 
             # encoder
@@ -76,6 +84,12 @@ class Seq2SeqBot(object):
                     dtype = tf.float32,
                     scope = "encoder"
                     )
+
+            # set up summary histograms
+            weights, biases = encoder_cell.variables
+            tf.summary.histogram("encoder cell weights", weights)
+            tf.summary.histogram("encoder cell biases", biases)
+
             logging.debug("encoder outputs: " + str(encoder_outputs))
             logging.debug("encoder final state: " + str(encoder_final_state))
 
@@ -104,6 +118,11 @@ class Seq2SeqBot(object):
                     output_layer=projection_layer)
             logging.debug("decoder: " + str(decoder))
 
+            # set up summary histograms
+            weights, biases = encoder_cell.variables
+            tf.summary.histogram("decoder cell weights", weights)
+            tf.summary.histogram("decoder cell biases", biases)
+
             # dynamic decoding
             outputs, final_state, final_sequence_lengths = \
                     tf.contrib.seq2seq.dynamic_decode(decoder)
@@ -120,19 +139,32 @@ class Seq2SeqBot(object):
             logging.debug("logits: " + str(logits))
             logging.debug("logits[:-1]: " + str(logits.shape[:-1]))
 
+        # loss
         loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
                 labels=responses, logits=logits)
         logging.debug("loss: " + str(loss))
 
+        flattened_loss = tf.reshape(loss, [-1])
+        averaged_loss = tf.math.reduce_mean(loss)
+        tf.summary.scalar('averaged_loss', averaged_loss)
+
+        # gradients
         params = tf.trainable_variables()
         gradients = tf.gradients(loss, params)
         clipped_gradients, _ = tf.clip_by_global_norm(
                 gradients, self.max_gradient_norm)
 
+        # optimizer
         optimizer = tf.train.AdamOptimizer(self.learning_rate)
         global_step = tf.Variable(0, name='global_step', trainable=False)
         self.train_op = train_op = optimizer.apply_gradients(
                 zip(clipped_gradients, params), global_step=global_step)
+
+        # summaries
+        self.summaries = tf.summary.merge_all()
+
+        # global variables initializer
+        self.sess.run(tf.global_variables_initializer())
 
     def train(self, training_data, test_data, num_epochs=10000):
         print("entering train function")
@@ -148,8 +180,6 @@ class Seq2SeqBot(object):
                 get_training_batch(training_data, self.batch_size, 
                         self.max_sentence_len)
 
-            sys.stdout.flush()
-
             # feed into model
             feed_dict = {
                     self.sentences: sentences,
@@ -158,7 +188,8 @@ class Seq2SeqBot(object):
                     self.response_lens: response_lens
                     }
             
-            self.sess.run([self.train_op], feed_dict=feed_dict)
+            _, summary = self.sess.run([self.train_op, self.summaries], feed_dict=feed_dict)
+            self.writer.add_summary(summary, i)
 
 
     def run_eager(self, training_data, test_data):
