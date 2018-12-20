@@ -30,7 +30,7 @@ tf.app.flags.DEFINE_string('embedding_fname', 'data/glove.6B.300d.txt',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_integer('hidden_size', 500, 'size of the hidden layers')
+tf.app.flags.DEFINE_integer('hidden_size', 8, 'size of the hidden layers')
 
 # runtime "flags"
 tf.app.flags.DEFINE_integer('max_sentence_len', 0, 
@@ -50,16 +50,18 @@ def main(_):
 
     # load metadata
     print('loading metadata')
-    word2id, max_sentence_len = get_data_info(dataset)
+    word2id, id2word, max_sentence_len = get_data_info(dataset)
     FLAGS.max_sentence_len = max_sentence_len
     logging.debug('max sentence len: %i' % max_sentence_len)
     logging.debug('word2id size: %i' % len(word2id))
+    logging.debug('id2word shape: %s' % str(id2word.shape))
 
     # load word vectors
     print('loading word vectors')
     word2vec = load_word_embeddings(FLAGS.embedding_fname,
             FLAGS.embedding_dim, word2id)
     logging.debug('word2vec type: %s' % type(word2vec))
+    logging.debug('word2vec shape: %s' % str(word2vec.shape))
 
     # convert dataset to integer ids
     print('converting dataset to ids')
@@ -68,12 +70,15 @@ def main(_):
     # split into train and test
     print('splitting dataset')
     train_size = int(len(dataset) * 0.9)
-    train_data = dataset[:train_size]
+
+    # TODO revert after testing
+    train_data = dataset[:100]
     test_data = dataset[train_size:] # test is remainder after training
 
     # run training
+    print('training')
     with tf.Session() as sess:
-        model = Seq2SeqBot(FLAGS, sess, word2vec)
+        model = Seq2SeqBot(FLAGS, sess, word2vec, id2word)
         model.train(train_data, test_data)
         #model.run_eager(train_data, test_data)
 

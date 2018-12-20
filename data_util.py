@@ -168,7 +168,15 @@ def get_data_info(data, save_fname='./data/data_info.txt',
 
     max_sentence_len = 0
     word2id = {}
+    id2word = []
+
+    def add_word(word):
+        word_id = len(word2id)
+        word2id[word] = word_id
+        id2word.append(word)
+
     word2id['<pad>'] = 0
+    id2word.append('<pad>')
 
     # TODO load from savefile
     # TODO build vocabulary?
@@ -184,7 +192,7 @@ def get_data_info(data, save_fname='./data/data_info.txt',
             for word in sentence:
                 # add word to dictionary
                 if word not in word2id and ' ' not in word:
-                    word2id[word] = len(word2id)
+                    add_word(word)
 
         for sentence in chat.partner_persona:
             sentence_len = len(sentence)
@@ -194,7 +202,7 @@ def get_data_info(data, save_fname='./data/data_info.txt',
             for word in sentence:
                 # add word to dictionary
                 if word not in word2id and ' ' not in word:
-                    word2id[word] = len(word2id)
+                    add_word(word)
 
         # get metadata from chat
         for partner_sentence, your_sentence in chat.chat:
@@ -207,7 +215,8 @@ def get_data_info(data, save_fname='./data/data_info.txt',
             for word in your_sentence + partner_sentence:
                 # add word to id dictionary
                 if word not in word2id and ' ' not in word:
-                    word2id[word] = len(word2id)
+                    add_word(word)
 
     # TODO save to savefile
-    return word2id, max_sentence_len
+    id2word = np.array(id2word)
+    return word2id, id2word, max_sentence_len

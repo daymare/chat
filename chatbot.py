@@ -11,7 +11,7 @@ from data_util import get_training_batch
 
 
 class Seq2SeqBot(object):
-    def __init__(self, config, sess, word2vec):
+    def __init__(self, config, sess, word2vec, id2word):
         self.n_hidden = config.hidden_size
         self.max_sentence_len = config.max_sentence_len
 
@@ -19,10 +19,11 @@ class Seq2SeqBot(object):
         self.vocab_size = len(word2vec)
         self.vocab_dim = word2vec.shape[1]
         self.word2vec = word2vec
+        self.id2word = id2word
 
         # hyperparams
-        self.max_gradient_norm = 0.1 # TODO set this to something reasonable
-        self.learning_rate = 0.1 # TODO set this to something reasonable
+        self.max_gradient_norm = 5.0
+        self.learning_rate = 1**-3
         self.train_steps = 10000
         self.batch_size = 32
 
@@ -64,6 +65,7 @@ class Seq2SeqBot(object):
         encoder_embedding_input = tf.cast(encoder_embedding_input, 
                 tf.float32)
         encoder_embedding_input = tf.reshape(encoder_embedding_input, [self.max_sentence_len, self.batch_size, self.word2vec.shape[1]])
+
         logging.debug("encoder embedding input: " + str(encoder_embedding_input))
 
         with tf.name_scope('encoder'):
@@ -87,8 +89,8 @@ class Seq2SeqBot(object):
 
             # set up summary histograms
             weights, biases = encoder_cell.variables
-            tf.summary.histogram("encoder cell weights", weights)
-            tf.summary.histogram("encoder cell biases", biases)
+            tf.summary.histogram("encoder_cell_weights", weights)
+            tf.summary.histogram("encoder_cell_biases", biases)
 
             logging.debug("encoder outputs: " + str(encoder_outputs))
             logging.debug("encoder final state: " + str(encoder_final_state))
@@ -120,8 +122,8 @@ class Seq2SeqBot(object):
 
             # set up summary histograms
             weights, biases = encoder_cell.variables
-            tf.summary.histogram("decoder cell weights", weights)
-            tf.summary.histogram("decoder cell biases", biases)
+            tf.summary.histogram("decoder_cell_weights", weights)
+            tf.summary.histogram("decoder_cell_biases", biases)
 
             # dynamic decoding
             outputs, final_state, final_sequence_lengths = \
@@ -144,9 +146,34 @@ class Seq2SeqBot(object):
                 labels=responses, logits=logits)
         logging.debug("loss: " + str(loss))
 
-        flattened_loss = tf.reshape(loss, [-1])
+        # summarize the loss
         averaged_loss = tf.math.reduce_mean(loss)
+        tf.summary.histogram('loss', loss)
         tf.summary.scalar('averaged_loss', averaged_loss)
+
+        # summarize the text input and output
+        output_example = logits[0] # shape (max_sentence_len, dictionary_size)
+
+        # convert logits to ids
+        example_predictions = tf.argmax(output_example, 1) # shape (max_sentence_len) 
+
+        # convert ids to sentence
+        example_input_list = tf.nn.embedding_lookup(self.id2word, sentences[0])
+        example_response_list = tf.nn.embedding_lookup(self.id2word, responses[0])
+        example_text_list = tf.nn.embedding_lookup(self.id2word, example_predictions)
+
+        logging.debug("example_input_list: " + str(example_input_list))
+        logging.debug("example_response_list: " + str(example_response_list))
+        logging.debug("example_text_list: " + str(example_text_list))
+
+        example_sentence = tf.strings.reduce_join(example_input_list, separator=' ')
+        example_response = tf.strings.reduce_join(example_response_list, separator=' ')
+        example_text = tf.strings.reduce_join(example_text_list, separator=' ')
+
+        example_output = tf.strings.join(
+                ["input: ", example_sentence, "\nresponse: ", example_response,
+                    "\nmodel response: ", example_text])
+        tf.summary.text('example_output', example_output)
 
         # gradients
         params = tf.trainable_variables()
@@ -174,6 +201,8 @@ class Seq2SeqBot(object):
                 print()
                 print("epoch: ", i, " ", end='')
             print('.', end='')
+
+            sys.stdout.flush()
 
             # get training batch
             sentences, responses, sentence_lens, response_lens = \
