@@ -23,9 +23,9 @@ class Seq2SeqBot(object):
 
         # hyperparams
         self.max_gradient_norm = 5.0
-        self.learning_rate = 1**-3
-        self.train_steps = 10000
-        self.batch_size = 32
+        self.learning_rate = 1**-2
+        self.train_steps = 1000000
+        self.batch_size = 1
 
         # build model
         self.build_model()
@@ -193,7 +193,7 @@ class Seq2SeqBot(object):
         # global variables initializer
         self.sess.run(tf.global_variables_initializer())
 
-    def train(self, training_data, test_data, num_epochs=10000):
+    def train(self, training_data, test_data, num_epochs=1000000):
         print("entering train function")
 
         for i in range(num_epochs):
@@ -216,9 +216,14 @@ class Seq2SeqBot(object):
                     self.sentence_lens: sentence_lens,
                     self.response_lens: response_lens
                     }
+
+            if i % 100 == 0:
+                _, summary = self.sess.run([self.train_op, self.summaries], feed_dict=feed_dict)
+                self.writer.add_summary(summary, i)
+            else:
+                self.sess.run([self.train_op], feed_dict=feed_dict)
+
             
-            _, summary = self.sess.run([self.train_op, self.summaries], feed_dict=feed_dict)
-            self.writer.add_summary(summary, i)
 
 
     def run_eager(self, training_data, test_data):
@@ -284,7 +289,7 @@ class Seq2SeqBot(object):
             # encoder cell
             encoder_cell = tf.contrib.rnn.LSTMCell(
                     self.n_hidden,
-                    initializer = tf.orthogonal_initializer()
+                    initializer = tf.initializers.identity()
                     )
             logging.debug("encoder cell: " + str(encoder_cell))
 
@@ -305,7 +310,7 @@ class Seq2SeqBot(object):
             # decoder cell
             decoder_cell = tf.contrib.rnn.LSTMCell(
                     self.n_hidden,
-                    initializer = tf.orthogonal_initializer())
+                    initializer = tf.initializers.identity())
             logging.debug("decoder cell: " + str(decoder_cell))
 
             # helper

@@ -30,7 +30,7 @@ tf.app.flags.DEFINE_string('embedding_fname', 'data/glove.6B.300d.txt',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_integer('hidden_size', 8, 'size of the hidden layers')
+tf.app.flags.DEFINE_integer('hidden_size', 500, 'size of the hidden layers')
 
 # runtime "flags"
 tf.app.flags.DEFINE_integer('max_sentence_len', 0, 
@@ -72,7 +72,7 @@ def main(_):
     train_size = int(len(dataset) * 0.9)
 
     # TODO revert after testing
-    train_data = dataset[:100]
+    train_data = dataset[:1]
     test_data = dataset[train_size:] # test is remainder after training
 
     # run training
