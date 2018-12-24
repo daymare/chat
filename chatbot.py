@@ -23,9 +23,11 @@ class Seq2SeqBot(object):
 
         # hyperparams
         self.max_gradient_norm = 5.0
-        self.learning_rate = 1**-2
+        self.learning_rate = 1**-4
         self.train_steps = 1000000
         self.batch_size = 1
+
+        self.num_layers = 3
 
         # build model
         self.build_model()
@@ -60,20 +62,39 @@ class Seq2SeqBot(object):
         logging.debug("sentence_lens: " + str(sentence_lens))
         #logging.debug("response_lens: " + str(response_lens))
 
+        embeddings = tf.Variable(tf.constant(0.0, shape=[self.vocab_size, self.vocab_dim]),
+                trainable=False, name="embeddings")
+        embedding_placeholder = tf.placeholder(
+                tf.float32,
+                shape=[self.vocab_size, self.vocab_dim]
+                )
+
+        embedding_init = embeddings.assign(embedding_placeholder)
+
         encoder_embedding_input = tf.nn.embedding_lookup(
                 self.word2vec, sentences)
         encoder_embedding_input = tf.cast(encoder_embedding_input, 
                 tf.float32)
-        encoder_embedding_input = tf.reshape(encoder_embedding_input, [self.max_sentence_len, self.batch_size, self.word2vec.shape[1]])
+
+        decoder_embedding_input = tf.nn.embedding_lookup(
+                self.word2vec, responses)
+        decoder_embedding_input = tf.cast(decoder_embedding_input, tf.float32)
 
         logging.debug("encoder embedding input: " + str(encoder_embedding_input))
 
+        def lstm_cell():
+            return tf.contrib.rnn.LSTMCell(self.n_hidden,
+                    initializer=tf.orthogonal_initializer
+                    )
+
         with tf.name_scope('encoder'):
             # encoder cell
-            encoder_cell = tf.contrib.rnn.LSTMCell(
-                    self.n_hidden,
-                    initializer = tf.orthogonal_initializer()
+            """
+            encoder_cell = tf.contrib.rnn.MultiRNNCell(
+                    [lstm_cell() for _ in range(self.num_layers)]
                     )
+            """
+            encoder_cell = lstm_cell()
 
             logging.debug("encoder cell: " + str(encoder_cell))
 
@@ -82,7 +103,7 @@ class Seq2SeqBot(object):
                     encoder_cell,
                     encoder_embedding_input,
                     sequence_length = sentence_lens,
-                    time_major=True,
+                    time_major=False,
                     dtype = tf.float32,
                     scope = "encoder"
                     )
@@ -98,15 +119,17 @@ class Seq2SeqBot(object):
         # decoder
         with tf.name_scope('decoder'):
             # decoder cell
-            decoder_cell = tf.contrib.rnn.LSTMCell(
-                    self.n_hidden,
-                    initializer = tf.orthogonal_initializer())
+            """
+            decoder_cell = tf.contrib.rnn.MultiRNNCell(
+                    [lstm_cell() for _ in range(self.num_layers)])
+            """
+            decoder_cell = lstm_cell()
             logging.debug("decoder cell: " + str(decoder_cell))
 
             # helper
             helper = tf.contrib.seq2seq.TrainingHelper(
-                    encoder_outputs,
-                    response_lens, time_major=True)
+                    decoder_embedding_input,
+                    response_lens, time_major=False)
             logging.debug("helper: " + str(helper))
 
             # decoder
@@ -120,15 +143,21 @@ class Seq2SeqBot(object):
                     output_layer=projection_layer)
             logging.debug("decoder: " + str(decoder))
 
-            # set up summary histograms
-            weights, biases = encoder_cell.variables
-            tf.summary.histogram("decoder_cell_weights", weights)
-            tf.summary.histogram("decoder_cell_biases", biases)
 
             # dynamic decoding
             outputs, final_state, final_sequence_lengths = \
-                    tf.contrib.seq2seq.dynamic_decode(decoder)
+                    tf.contrib.seq2seq.dynamic_decode(
+                            decoder=decoder,
+                            output_time_major=False,
+                            impute_finished=True,
+                            maximum_iterations=self.max_sentence_len
+                            )
             logits = outputs.rnn_output
+
+            # set up summary histograms
+            weights, biases = decoder_cell.variables
+            tf.summary.histogram("decoder_cell_weights", weights)
+            tf.summary.histogram("decoder_cell_biases", biases)
 
             # 0 pad logits to match shape of labels
             pad = tf.subtract(self.max_sentence_len, tf.shape(logits)[1])
@@ -142,8 +171,14 @@ class Seq2SeqBot(object):
             logging.debug("logits[:-1]: " + str(logits.shape[:-1]))
 
         # loss
-        loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
-                labels=responses, logits=logits)
+        loss_mask = tf.sequence_mask(
+                final_sequence_lengths, self.max_sentence_len, dtype=tf.float32)
+        logging.debug("loss mask: " + str(loss_mask))
+        loss = tf.contrib.seq2seq.sequence_loss(
+                targets=responses, logits=logits, weights=loss_mask
+                )
+
+
         logging.debug("loss: " + str(loss))
 
         # summarize the loss
@@ -190,6 +225,9 @@ class Seq2SeqBot(object):
         # summaries
         self.summaries = tf.summary.merge_all()
 
+        # initialize embeddings
+        self.sess.run(embedding_init, feed_dict={embedding_placeholder: self.word2vec})
+
         # global variables initializer
         self.sess.run(tf.global_variables_initializer())
 
@@ -200,9 +238,6 @@ class Seq2SeqBot(object):
             if i % 50 == 0:
                 print()
                 print("epoch: ", i, " ", end='')
-            print('.', end='')
-
-            sys.stdout.flush()
 
             # get training batch
             sentences, responses, sentence_lens, response_lens = \
