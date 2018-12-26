@@ -7,6 +7,8 @@ from tensorflow.python.layers import core as layers_core
 
 import sys
 import random
+import math
+from decimal import Decimal
 
 from data_util import get_training_batch
 
@@ -24,7 +26,7 @@ class Seq2SeqBot(object):
 
         # hyperparams
         self.max_gradient_norm = 3.0
-        self.learning_rate = 1.0 * 10**-4
+        self.learning_rate = 4.7 * 10**-3
         self.train_steps = 1000000
         self.batch_size = 32
 
@@ -213,8 +215,6 @@ class Seq2SeqBot(object):
     def train(self, training_data, test_data, num_epochs=1000000,
             save_summary=True, print_training=True
             ):
-        print("entering train function")
-
         recent_losses = []
         recent_perplexities = []
 
@@ -224,7 +224,7 @@ class Seq2SeqBot(object):
                 recent_list.pop(0)
 
         for i in range(num_epochs):
-            if print_training == True and i % (num_epochs / 160) == 0:
+            if print_training == True and i % (num_epochs // 208) == 0:
                 print('.', end='')
                 sys.stdout.flush()
 
@@ -262,7 +262,7 @@ class Seq2SeqBot(object):
         return average_recent_loss, average_recent_perplexities
 
     def perform_parameter_search(self, parameter_ranges, training_data, 
-            num_epochs_per_parameter=7000, result_filepath="parameter_search_results.txt"):
+            num_epochs_per_parameter=1000, result_filepath="parameter_search_results.txt"):
         """ perform random parameter search
 
         runs random parameter searches in the valid ranges until termination
@@ -292,9 +292,16 @@ class Seq2SeqBot(object):
         hidden_size_range = None if "hidden_size" not in parameter_ranges \
                 else parameter_ranges["hidden_size"]
 
+        def get_loguniform(low_exponent, high_exponent):
+            value = random.random() * 10
+            exponent = random.randint(low_exponent, high_exponent)
+
+            return value * 10**exponent
+
+
         def generate_parameter_config():
             config = {}
-            config["learning_rate"] = random.uniform(learning_rate_range[0], 
+            config["learning_rate"] = get_loguniform(learning_rate_range[0], 
                     learning_rate_range[1])
             config["hidden_size"] = random.randint(hidden_size_range[0],
                     hidden_size_range[1])
@@ -320,17 +327,18 @@ class Seq2SeqBot(object):
             apply_parameter_config(config)
 
             # train
-            print("running: " + str(config))
-
-            loss, perplexity = self.train(training_data, None, 
-                    num_epochs_per_parameter, save_summary=False,
-                    print_training=True)
+            try:
+                loss, perplexity = self.train(training_data, None, 
+                        num_epochs_per_parameter, save_summary=False,
+                        print_training=True)
+            except:
+                loss, perplexity = math.inf, math.inf
 
             # output results
             print()
-            results_text = str(config) + "loss: " + str(loss) + " perplexity: " \
-                    + str(perplexity) + "\n"
+            results_text = str(config) + " loss: " + str(loss) + "\n"
             result_file.write(results_text)
+            print(results_text, end='')
 
             # calculate best loss and output
             if best_loss == None or best_loss > loss:
@@ -338,7 +346,8 @@ class Seq2SeqBot(object):
                 best_loss = loss
 
             # output best loss
-            print("best loss: " + str(best_loss) + " " + str(config))
-            print()
+            print("best loss: " + str(best_loss_config) + " loss: " + str(best_loss))
+            result_file.write("best loss: " + str(best_loss_config) + " loss: " + str(best_loss) + "\n\n")
+            result_file.flush()
 
 

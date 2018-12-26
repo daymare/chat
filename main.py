@@ -1,6 +1,7 @@
 
 import logging
 import sys
+import os
 
 import tensorflow as tf
 from tensorflow.python import debug as tf_debug
@@ -31,7 +32,7 @@ tf.app.flags.DEFINE_string('embedding_fname', 'data/glove.6B.300d.txt',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_integer('hidden_size', 400, 'size of the hidden layers')
+tf.app.flags.DEFINE_integer('hidden_size', 600, 'size of the hidden layers')
 
 tf.app.flags.DEFINE_boolean('debug', False, 'run in debug mode?')
 
@@ -41,7 +42,10 @@ tf.app.flags.DEFINE_integer('max_sentence_len', 0,
         at runtime')
 
 # logging
-logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+#logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stderr, level=logging.CRITICAL)
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
 def main(_):
@@ -89,8 +93,8 @@ def main(_):
 
     # perform parameter search
     parameter_ranges = {}
-    parameter_ranges["learning_rate"] = (1.0 * 10**-12, 1.0)
-    parameter_ranges["hidden_size"] = (10, 2000)
+    parameter_ranges["learning_rate"] = (-12, -2)
+    parameter_ranges["hidden_size"] = (10, 1000)
 
     model.perform_parameter_search(parameter_ranges, train_data)
     #model.train(train_data, test_data)
