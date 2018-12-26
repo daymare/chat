@@ -6,6 +6,7 @@ import tensorflow as tf
 from tensorflow.python.layers import core as layers_core
 
 import sys
+import random
 
 from data_util import get_training_batch
 
@@ -149,8 +150,8 @@ class Seq2SeqBot(object):
                 labels=tf.one_hot(responses, depth=self.vocab_size, dtype=tf.float32),
                 logits=logits)
 
-        perplexity = tf.exp(cross_entropy)
-        loss = tf.reduce_mean(cross_entropy)
+        self.perplexity = perplexity = tf.exp(cross_entropy)
+        self.loss = loss = tf.reduce_mean(cross_entropy)
 
         logging.debug("loss: " + str(loss))
 
@@ -202,19 +203,30 @@ class Seq2SeqBot(object):
         # summaries
         self.summaries = tf.summary.merge_all()
 
-        # initialize embeddings
-        self.sess.run(embedding_init, feed_dict={embedding_placeholder: self.word2vec})
-
         # global variables initializer
         self.sess.run(tf.global_variables_initializer())
 
-    def train(self, training_data, test_data, num_epochs=1000000):
+        # initialize embeddings
+        self.sess.run(embedding_init, feed_dict={embedding_placeholder: self.word2vec})
+
+
+    def train(self, training_data, test_data, num_epochs=1000000,
+            save_summary=True, print_training=True
+            ):
         print("entering train function")
 
+        recent_losses = []
+        recent_perplexities = []
+
+        def add_recent_value(recent_list, new_value, max_values=100):
+            recent_list.append(new_value)
+            if len(recent_list) > max_values:
+                recent_list.pop(0)
+
         for i in range(num_epochs):
-            if i % 50 == 0:
-                print()
-                print("epoch: ", i, " ", end='')
+            if print_training == True and i % (num_epochs / 160) == 0:
+                print('.', end='')
+                sys.stdout.flush()
 
             # get training batch
             sentences, responses, sentence_lens, response_lens = \
@@ -229,10 +241,104 @@ class Seq2SeqBot(object):
                     self.response_lens: response_lens
                     }
 
-            if i % 100 == 0:
-                _, summary = self.sess.run([self.train_op, self.summaries], feed_dict=feed_dict)
+            loss = None
+            perplexity = None
+
+            if save_summary == True and i % 100 == 0:
+                _, loss, perplexity, summary = self.sess.run(
+                        [self.train_op, self.loss, self.perplexity, self.summaries], 
+                        feed_dict=feed_dict)
                 self.writer.add_summary(summary, i)
             else:
-                self.sess.run([self.train_op], feed_dict=feed_dict)
+                _, loss, perplexity = self.sess.run(
+                        [self.train_op, self.loss, self.perplexity], feed_dict=feed_dict)
+
+            add_recent_value(recent_losses, loss)
+            add_recent_value(recent_perplexities, perplexity)
+
+        # return final loss and perplexity
+        average_recent_loss = sum(recent_losses) / float(len(recent_losses))
+        average_recent_perplexities = sum(recent_perplexities) / float(len(recent_perplexities))
+        return average_recent_loss, average_recent_perplexities
+
+    def perform_parameter_search(self, parameter_ranges, training_data, 
+            num_epochs_per_parameter=7000, result_filepath="parameter_search_results.txt"):
+        """ perform random parameter search
+
+        runs random parameter searches in the valid ranges until termination
+        (receive SIG-int, CTRL-C)
+
+        current searchable parameters:
+            learning rate
+            hidden size
+
+        input:
+            parameter_ranges:
+                dictionary of parameter_name -> (low_value, high_value)
+            training_data - training data, see load util.load_dataset
+            num_epochs_per_parameter - number of epochs to run each parameter
+                configuration for before returning the output
+        output: 
+            returns: None
+            prints: parameter configurations and their scores
+            saves parameter configurations and their scores to file
+        """
+        # open result file
+        result_file = open(result_filepath, "a")
+        
+        # get parameter ranges
+        learning_rate_range = None if "learning_rate" not in parameter_ranges \
+                else parameter_ranges["learning_rate"]
+        hidden_size_range = None if "hidden_size" not in parameter_ranges \
+                else parameter_ranges["hidden_size"]
+
+        def generate_parameter_config():
+            config = {}
+            config["learning_rate"] = random.uniform(learning_rate_range[0], 
+                    learning_rate_range[1])
+            config["hidden_size"] = random.randint(hidden_size_range[0],
+                    hidden_size_range[1])
+
+            return config
+
+        def apply_parameter_config(config):
+            self.learning_rate = config["learning_rate"]
+            self.n_hidden = config["hidden_size"]
+
+            tf.reset_default_graph()
+            self.sess.close()
+            self.sess = tf.Session()
+
+            self.build_model()
+
+        best_loss_config = None
+        best_loss = None
+
+        # generate a parameter config and test
+        while True:
+            config = generate_parameter_config()
+            apply_parameter_config(config)
+
+            # train
+            print("running: " + str(config))
+
+            loss, perplexity = self.train(training_data, None, 
+                    num_epochs_per_parameter, save_summary=False,
+                    print_training=True)
+
+            # output results
+            print()
+            results_text = str(config) + "loss: " + str(loss) + " perplexity: " \
+                    + str(perplexity) + "\n"
+            result_file.write(results_text)
+
+            # calculate best loss and output
+            if best_loss == None or best_loss > loss:
+                best_loss_config = config
+                best_loss = loss
+
+            # output best loss
+            print("best loss: " + str(best_loss) + " " + str(config))
+            print()
 
 

@@ -3,6 +3,7 @@ import logging
 import sys
 
 import tensorflow as tf
+from tensorflow.python import debug as tf_debug
 import numpy as np
 
 from load_util import load_word_embeddings, load_dataset
@@ -30,7 +31,9 @@ tf.app.flags.DEFINE_string('embedding_fname', 'data/glove.6B.300d.txt',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_integer('hidden_size', 500, 'size of the hidden layers')
+tf.app.flags.DEFINE_integer('hidden_size', 400, 'size of the hidden layers')
+
+tf.app.flags.DEFINE_boolean('debug', False, 'run in debug mode?')
 
 # runtime "flags"
 tf.app.flags.DEFINE_integer('max_sentence_len', 0, 
@@ -72,15 +75,27 @@ def main(_):
     train_size = int(len(dataset) * 0.9)
 
     # TODO revert after testing
-    train_data = dataset[:1]
+    train_data = dataset[:train_size]
     test_data = dataset[train_size:] # test is remainder after training
 
     # run training
     print('training')
-    with tf.Session() as sess:
-        model = Seq2SeqBot(FLAGS, sess, word2vec, id2word)
-        model.train(train_data, test_data)
-        #model.run_eager(train_data, test_data)
+
+    sess = tf.Session()
+    if FLAGS.debug == True:
+        sess = tf_debug.TensorBoardDebugWrapperSession(sess, 'localhost:6064')
+
+    model = Seq2SeqBot(FLAGS, sess, word2vec, id2word)
+
+    # perform parameter search
+    parameter_ranges = {}
+    parameter_ranges["learning_rate"] = (1.0 * 10**-12, 1.0)
+    parameter_ranges["hidden_size"] = (10, 2000)
+
+    model.perform_parameter_search(parameter_ranges, train_data)
+    #model.train(train_data, test_data)
+
+    sess.close()
 
 if __name__ == '__main__':
     tf.app.run()
