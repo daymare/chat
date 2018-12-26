@@ -23,9 +23,9 @@ class Seq2SeqBot(object):
 
         # hyperparams
         self.max_gradient_norm = 3.0
-        self.learning_rate = 1**-4
+        self.learning_rate = 1.0 * 10**-4
         self.train_steps = 1000000
-        self.batch_size = 1
+        self.batch_size = 32
 
         # build model
         self.build_model()
@@ -120,7 +120,16 @@ class Seq2SeqBot(object):
                     initial_state=encoder_final_state, 
                     dtype=tf.float32, time_major=False)
 
-            logits = tf.contrib.layers.linear(decoder_outputs, self.vocab_size)
+            logits = tf.layers.dense(
+                    inputs=decoder_outputs, 
+                    units=self.vocab_size, 
+                    name="projection_layer")
+
+            with tf.variable_scope("projection_layer", reuse=True):
+                weights = tf.get_variable("kernel")
+                bias = tf.get_variable("bias")
+                tf.summary.histogram("projection_layer_weights", weights)
+                tf.summary.histogram("projection_layer_bias", bias)
 
             # set up summary histograms
             weights, biases = decoder_cell.variables
@@ -140,6 +149,7 @@ class Seq2SeqBot(object):
                 labels=tf.one_hot(responses, depth=self.vocab_size, dtype=tf.float32),
                 logits=logits)
 
+        perplexity = tf.exp(cross_entropy)
         loss = tf.reduce_mean(cross_entropy)
 
         logging.debug("loss: " + str(loss))
@@ -148,6 +158,10 @@ class Seq2SeqBot(object):
         averaged_loss = tf.reduce_mean(loss)
         tf.summary.histogram('loss', loss)
         tf.summary.scalar('averaged_loss', averaged_loss)
+
+        # summarize the perplexity
+        average_perplexity = tf.reduce_mean(perplexity)
+        tf.summary.scalar('avg_perplexity', average_perplexity)
 
         # summarize the text input and output
         output_example = logits[0] # shape (max_sentence_len, dictionary_size)
