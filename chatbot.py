@@ -122,7 +122,7 @@ class Seq2SeqBot(object):
                     decoder_cell, decoder_embedding_input,
                     initial_state=encoder_final_state, 
                     dtype=tf.float32, time_major=False,
-                    name="decoder_rnn")
+                    scope="decoder_rnn")
 
             logits = tf.layers.dense(
                     inputs=decoder_outputs, 
