@@ -10,7 +10,7 @@ import random
 import math
 from decimal import Decimal
 
-from data_util import get_training_batch
+from util.data_util import get_training_batch
 
 
 class Seq2SeqBot(object):
@@ -101,7 +101,7 @@ class Seq2SeqBot(object):
                     sequence_length = sentence_lens,
                     time_major=False,
                     dtype = tf.float32,
-                    scope = "encoder"
+                    scope = "encoder_rnn"
                     )
 
             # set up summary histograms
@@ -121,7 +121,8 @@ class Seq2SeqBot(object):
             decoder_outputs, decoder_final_state = tf.nn.dynamic_rnn(
                     decoder_cell, decoder_embedding_input,
                     initial_state=encoder_final_state, 
-                    dtype=tf.float32, time_major=False)
+                    dtype=tf.float32, time_major=False,
+                    name="decoder_rnn")
 
             logits = tf.layers.dense(
                     inputs=decoder_outputs, 
@@ -224,9 +225,13 @@ class Seq2SeqBot(object):
                 recent_list.pop(0)
 
         for i in range(num_epochs):
-            if print_training == True and i % (num_epochs // 208) == 0:
-                print('.', end='')
-                sys.stdout.flush()
+            if print_training == True:
+                if i % 30 == 0:
+                    print('.', end='')
+                    sys.stdout.flush()
+                if i % (30 * 60) == 0:
+                    print()
+                    print("epoch: " + str(i) + " ", end='')
 
             # get training batch
             sentences, responses, sentence_lens, response_lens = \
@@ -262,7 +267,7 @@ class Seq2SeqBot(object):
         return average_recent_loss, average_recent_perplexities
 
     def perform_parameter_search(self, parameter_ranges, training_data, 
-            num_epochs_per_parameter=1000, result_filepath="parameter_search_results.txt"):
+            num_epochs_per_parameter=2500, result_filepath="parameter_search_results.txt"):
         """ perform random parameter search
 
         runs random parameter searches in the valid ranges until termination

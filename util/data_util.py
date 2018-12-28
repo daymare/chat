@@ -2,7 +2,7 @@ import random
 import numpy as np
 
 
-from load_util import Chat
+from util.load_util import Chat
 
 
 def sentence_to_np(sentence, max_sentence_len):

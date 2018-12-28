@@ -7,8 +7,8 @@ import tensorflow as tf
 from tensorflow.python import debug as tf_debug
 import numpy as np
 
-from load_util import load_word_embeddings, load_dataset
-from data_util import get_data_info, convert_to_id
+from util.load_util import load_word_embeddings, load_dataset
+from util.data_util import get_data_info, convert_to_id
 
 from chatbot import Seq2SeqBot
 
@@ -92,12 +92,15 @@ def main(_):
     model = Seq2SeqBot(FLAGS, sess, word2vec, id2word)
 
     # perform parameter search
+    """
     parameter_ranges = {}
     parameter_ranges["learning_rate"] = (-12, -2)
     parameter_ranges["hidden_size"] = (10, 1000)
 
     model.perform_parameter_search(parameter_ranges, train_data)
-    #model.train(train_data, test_data)
+    """
+
+    model.train(train_data, test_data)
 
     sess.close()
 
