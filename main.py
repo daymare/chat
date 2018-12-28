@@ -10,7 +10,7 @@ import numpy as np
 from util.load_util import load_word_embeddings, load_dataset
 from util.data_util import get_data_info, convert_to_id
 
-from chatbot import Seq2SeqBot
+from models.seq2seq import Seq2SeqBot
 
 #tf.enable_eager_execution()
 
@@ -99,7 +99,6 @@ def main(_):
 
     model.perform_parameter_search(parameter_ranges, train_data)
     """
-
     model.train(train_data, test_data)
 
     sess.close()
