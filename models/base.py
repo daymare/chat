@@ -35,6 +35,14 @@ class Chatbot(object):
         # file writer
         self.writer = tf.summary.FileWriter('./train', sess.graph)
 
+        # summaries
+        self.summaries = tf.summary.merge_all()
+
+        # global variables initialize
+        self.sess.run(tf.global_variables_initializer())
+
+        # initialize embeddings
+        self.sess.run(embedding_init, feed_dict={embedding_placeholder: self.word2vec})
 
     def build_model(self):
         raise Exception("virtual method! Implement in subclass.")

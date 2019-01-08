@@ -9,11 +9,17 @@ import sys
 import random
 import math
 
-from util.data_util import get_training_batch
+from util.data_util import get_training_batch_simple
 from models.base import Chatbot
 
 
 class Seq2SeqBot(Chatbot):
+    """ sequence to sequence bot
+
+    simple sequence to sequence bot based on LSTMS.
+    single layer LSTM encoder decoder architecture.
+
+    """
     def __init__(self, config, sess, word2vec, id2word):
         super().__init__(config, sess, word2vec, id2word)
 
@@ -120,7 +126,6 @@ class Seq2SeqBot(Chatbot):
             tf.summary.histogram("decoder_cell_weights", weights)
             tf.summary.histogram("decoder_cell_biases", biases)
 
-            # 0 pad logits to match shape of labels
             logging.debug("final state: " + str(decoder_final_state))
             logging.debug("logits: " + str(logits))
             logging.debug("logits[:-1]: " + str(logits.shape[:-1]))
@@ -183,15 +188,6 @@ class Seq2SeqBot(Chatbot):
         self.train_op = train_op = optimizer.apply_gradients(
                 zip(clipped_gradients, params), global_step=global_step)
 
-        # summaries
-        self.summaries = tf.summary.merge_all()
-
-        # global variables initializer
-        self.sess.run(tf.global_variables_initializer())
-
-        # initialize embeddings
-        self.sess.run(embedding_init, feed_dict={embedding_placeholder: self.word2vec})
-
 
     def train(self, training_data, test_data, num_epochs=1000000,
             save_summary=True, print_training=True
@@ -215,7 +211,7 @@ class Seq2SeqBot(Chatbot):
 
             # get training batch
             sentences, responses, sentence_lens, response_lens = \
-                get_training_batch(training_data, self.batch_size, 
+                get_training_batch_simple(training_data, self.batch_size, 
                         self.max_sentence_len)
 
             # feed into model
