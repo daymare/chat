@@ -2,6 +2,8 @@
 
 from models.base import Chatbot
 
+import tensorflow as tf
+
 
 class ProfileMemoryBot(Chatbot):
     """ profile memory bot
@@ -35,7 +37,7 @@ class ProfileMemoryBot(Chatbot):
                 constant_values=0)
         cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
                 labels = tf.one_hot(padded_response, depth=self.vocab_size,
-                    dtype=tf.float32).
+                    dtype=tf.float32),
                 logits = self.logits)
         self.perplexity = tf.exp(cross_entropy)
         self.loss = tf.reduce_mean(cross_entropy)
@@ -84,7 +86,7 @@ class ProfileMemoryBot(Chatbot):
             # build decoder
             attention_mechanism = tf.contrib.seq2seq.LuongAttention(
                     num_units = self.n_hidden,
-                    self.encoded_personas)
+                    memory = self.encoded_personas)
             decoder_cell = self.get_lstm_cell()
             decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
                     decoder_cell, attention_mechanism,
@@ -183,10 +185,10 @@ class ProfileMemoryBot(Chatbot):
         # input sentences
         self.persona_sentences = tf.placeholder(dtype=tf.int32, 
             shape=(self.batch_size, self.max_persona_sentences, 
-                self.max_sentence_len)
+                self.max_sentence_len))
         self.context_sentences = tf.placeholder(dtype=tf.int32,
             shape=(self.batch_size, 
-                self.max_conversation_length * self.max_sentence_len)
+                self.max_conversation_length * self.max_sentence_len))
         self.response = tf.placeholder(tf.int32, shape=(self.batch_size, self.max_sentence_len))
 
         # input lengths
@@ -195,10 +197,14 @@ class ProfileMemoryBot(Chatbot):
         self.context_sentence_lens = tf.placeholder(dtype=tf.int32,
             shape=(self.batch_size, self.max_conversation_length))
         self.response_sentence_len = tf.placeholder(dtype=tf.int32,
-            shape=(self.batch_size)
+            shape=(self.batch_size))
         
     
-    def train(self, training_data, test_data, num_epochs=1000000):
+    def train(self, training_data, test_data, num_epochs=1000000,
+            save_summary=True, print_training=True):
+        # TODO move save summary and print training to parameters
+        # TODO move num epochs to parameter
+        # TODO move to parameters
         dot_interval = 30
         dots_per_line = 60
 
@@ -218,6 +224,26 @@ class ProfileMemoryBot(Chatbot):
                 self.max_conversation_len, self.max_persona_sentences)
 
             # feed into model
+            feed_dict = {
+                self.persona_sentences : personas,
+                self.context_sentences : sentences,
+                self.response : responses,
+                self.persona_sentence_lens : persona_lens,
+                self.context_sentence_lens : sentence_lens,
+                self.response_sentence_len : response_lens
+                }
+            
+            # TODO move to parameter
+            save_frequency = 100
+            if save_summary == True and i % 100 == 0:
+                _, summary = self.sess.run(
+                    [self.train_op, self.summaries],
+                    feed_dict=feed_dict)
+                self.writer.add_summary(summary, i)
+            else:
+                _ = self.sess.run(
+                    [self.train_op], feed_dict=feed_dict)
+
         
 
 

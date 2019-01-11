@@ -9,8 +9,6 @@ import sys
 import random
 import math
 
-from util.data_util import get_training_batch
-
 
 class Chatbot(object):
     def __init__(self, config, sess, word2vec, id2word):

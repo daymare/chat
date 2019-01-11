@@ -11,6 +11,7 @@ from util.load_util import load_word_embeddings, load_dataset
 from util.data_util import get_data_info, convert_to_id
 
 from models.seq2seq import Seq2SeqBot
+from models.memory_net import ProfileMemoryBot
 
 #tf.enable_eager_execution()
 
@@ -89,7 +90,8 @@ def main(_):
     if FLAGS.debug == True:
         sess = tf_debug.TensorBoardDebugWrapperSession(sess, 'localhost:6064')
 
-    model = Seq2SeqBot(FLAGS, sess, word2vec, id2word)
+    #model = Seq2SeqBot(FLAGS, sess, word2vec, id2word)
+    model = ProfileMemoryBot(FLAGS, sess, word2vec, id2word)
 
     # perform parameter search
     """
