@@ -41,6 +41,12 @@ tf.app.flags.DEFINE_boolean('debug', False, 'run in debug mode?')
 tf.app.flags.DEFINE_integer('max_sentence_len', 0, 
         'the maximum length of any sentence in the dataset. calculated \
         at runtime')
+tf.app.flags.DEFINE_integer('max_conversation_len', 0, 
+        'the maximum length of any conversation in the dataset. calculated \
+        at runtime')
+tf.app.flags.DEFINE_integer('max_persona_len', 0, 
+        'the maximum length of any persona in the dataset. calculated \
+        at runtime')
 
 # logging
 #logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -58,8 +64,11 @@ def main(_):
 
     # load metadata
     print('loading metadata')
-    word2id, id2word, max_sentence_len = get_data_info(dataset)
+    word2id, id2word, max_sentence_len, max_conversation_len, \
+            max_persona_len = get_data_info(dataset)
     FLAGS.max_sentence_len = max_sentence_len
+    FLAGS.max_conversation_len = max_conversation_len
+    FLAGS.max_persona_len = max_persona_len
     logging.debug('max sentence len: %i' % max_sentence_len)
     logging.debug('word2id size: %i' % len(word2id))
     logging.debug('id2word shape: %s' % str(id2word.shape))

@@ -298,6 +298,8 @@ def get_data_info(data, save_fname='./data/data_info.txt',
     # number of exchanges
 
     max_sentence_len = 0
+    max_conversation_len = 0
+    max_persona_len = 0
     word2id = {}
     id2word = []
 
@@ -315,6 +317,8 @@ def get_data_info(data, save_fname='./data/data_info.txt',
     # extract metadata from data
     for chat in data:
         # get metadata from personas
+        persona_len = len(chat.your_persona)
+        max_persona_len = max(persona_len, max_persona_len)
         for sentence in chat.your_persona:
             sentence_len = len(sentence)
 
@@ -336,6 +340,8 @@ def get_data_info(data, save_fname='./data/data_info.txt',
                     add_word(word)
 
         # get metadata from chat
+        conversation_len = 2 * len(chat.chat)
+        max_conversation_len = max(conversation_len, max_conversation_len)
         for partner_sentence, your_sentence in chat.chat:
             partner_len = len(partner_sentence)
             your_len = len(your_sentence)
@@ -350,4 +356,5 @@ def get_data_info(data, save_fname='./data/data_info.txt',
 
     # TODO save to savefile
     id2word = np.array(id2word)
-    return word2id, id2word, max_sentence_len
+    return word2id, id2word, max_sentence_len, max_conversation_len, \
+            max_persona_len
