@@ -6,8 +6,6 @@ from util.load_util import Chat
 
 
 def sentence_to_np(sentence, max_sentence_len):
-    # TODO add stop word to the end of all sentences (I think it is 0)
-    #  haha np zeros makes sure of this
     np_sentence = np.zeros(max_sentence_len, dtype=np.int32)
 
     for i in range(len(sentence)):
@@ -96,11 +94,11 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
         max conversation len to normalize to
         max persona sentences to normalize to
     output:
-        persona - List[List[word]] - list of persona sentences
-        conversation - List[word] - previous conversation sentences.
+        persona - List[nparray[word]] - list of persona sentences
+        conversation - nparray[word] - previous conversation sentences.
             sentences will start with the partner statement. Sentences will
             be separated by <pad>
-        response - List[word] - dataset response output
+        response - nparray[word] - dataset response output
         persona_sentence_lens - List[int] - length of each sentence in the persona sentences
         conversation_len - int - total length of the conversation including pads
         response_len - int - length of the response sentence
@@ -148,10 +146,16 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
     response_len = len(exchange[1])
 
     # convert everything to np arrays
+    for i in range(len(persona)):
+        sentence = persona[i]
+        new_sentence = sentence_to_np(sentence, max_sentence_len)
+        persona[i] = new_sentence
+
+    conversation = sentence_to_np(conversation, max_sentence_len * max_conversation_len)
+    response = sentence_to_np(response, max_sentence_len)
 
     return persona, conversation, response, persona_lens, \
         conversation_len, response_len
-
 
 
 
@@ -173,6 +177,7 @@ def get_training_batch_full(dataset, batch_size, max_sentence_len,
         sentences - List[List[words]] list of conversations. 
             Sentences separated by <pad>.
         responses - List[List[words]] list of response sentences.
+        persona_lens - List[List[int]] length of each persona sentence.
         sentence_lens - List[int] length of each conversation in sentences.
         response_lens - List[int] length of each sentence in responses.
     """
@@ -180,12 +185,34 @@ def get_training_batch_full(dataset, batch_size, max_sentence_len,
     personas = []
     sentences = []
     responses = []
+    persona_lens = []
     sentence_lens = []
     response_lens = []
 
     # fill lists with samples
     for i in range(batch_size):
-        
+        persona, conversation, response, persona_sentence_lens, \
+                conversation_len, response_len = \
+                get_full_sample(dataset, max_sentence_len, max_conversation_len,
+                        max_persona_sentences)
+
+        personas.append(persona)
+        sentences.append(conversation)
+        responses.append(response)
+        persona_lens.append(persona_sentence_lens)
+        sentence_lens.append(conversation_len)
+        response_lens.append(response_len)
+
+    # convert to np arrays
+    personas = np.array(personas)
+    sentences = np.array(sentences)
+    responses = np.array(responses)
+    persona_lens = np.array(persona_lens)
+    sentence_lens = np.array(sentence_lens)
+    response_lens = np.array(response_lens)
+
+    return personas, sentences, responses, persona_lens, sentence_lens, \
+            response_lens
 
 
 def convert_to_id(dataset, word2id):
@@ -266,6 +293,9 @@ def get_data_info(data, save_fname='./data/data_info.txt',
             word2id - dictionary[string word : int id]
             max_sentence_len - number of words in the longest subtitle.
     """
+    # TODO get max conversation len and max persona len
+    # max conversation len should be the actual number of sentences not the
+    # number of exchanges
 
     max_sentence_len = 0
     word2id = {}
