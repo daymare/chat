@@ -24,6 +24,7 @@ class ProfileMemoryBot(Chatbot):
         self.setup_embeddings()
 
         self.setup_encoder()
+        self.setup_profile_memory()
         self.setup_decoder()
 
         self.setup_training()
@@ -81,7 +82,14 @@ class ProfileMemoryBot(Chatbot):
     def setup_decoder(self):
         with tf.name_scope('decoder'):
             # build decoder
+            attention_mechanism = tf.contrib.seq2seq.LuongAttention(
+                    num_units = self.n_hidden,
+                    self.encoded_personas)
             decoder_cell = self.get_lstm_cell()
+            decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
+                    decoder_cell, attention_mechanism,
+                    attention_layer_size=n_hidden)
+
             self.decoder_outputs, self.decoder_final_state = tf.nn.dynamic_rnn(
                     cell = decoder_cell,
                     inputs = decoder_embedding_input,
@@ -107,12 +115,27 @@ class ProfileMemoryBot(Chatbot):
                 bias = tf.get_variable("bias")
                 tf.summary.histogram("projection_layer_weights", weights)
                 tf.summary.histogram("projection_layer_bias", bias)
+    
+    def setup_profile_memory(self):
+        # encode each persona sentence with a universal sentence encoder
+        # get sentence encoder
+        # TODO potential bug sentence encoder may not play well with the
+        # pre-processed input.
+        embedder = hub.Module("https://tfhub.dev/google/universal-sentence-encoder/2")
 
+        # convert persona sentences back to text
+        persona_list = tf.nn.embedding_lookup(self.id2word, self.persona_sentences)
+        persona_sentences = tf.strings.reduce_join(persona_list, separator=' ',
+                axis=2)
+
+        # feed into embedder and get embeddings
+        encoded_personas = embedder(persona_sentences)
 
 
     def setup_encoder(self):
         with tf.name_scope('encoder'):
             # build encoder
+            # TODO change to bi-directional rnn
             encoder_cell = self.get_lstm_cell()
             self.encoder_outputs, self.encoder_final_state = tf.nn.dynamic_rnn(
                     cell = encoder_cell,
@@ -137,12 +160,20 @@ class ProfileMemoryBot(Chatbot):
                 shape=(self.vocab_size, self.vocab_dim))
         self.embedding_init = embeddings.assign(embedding_placeholder)
 
+        # persona input
+        self.persona_embedding_input = tf.nn.embedding_lookup(embeddings,
+                self.persona_sentences)
+
         # embedding input
         self.encoder_embedding_input = tf.nn.embedding_lookup(embeddings,
                 self.context_sentences)
 
         # add <pad> as the first word to decoder to have accurate input
         # during training as the decoder will receive pad to start
+        # TODO placeholder may need to be something else since pad also
+        # signifies the end of the sentence.
+        
+        # decoder response input
         decoder_response_input = tf.pad(self.response, [[0,0], [1,0]], 
                 "CONSTANT", constant_values=0)
         self.decoder_embedding_input = tf.nn.embedding_lookup(self.embeddings,
@@ -155,7 +186,7 @@ class ProfileMemoryBot(Chatbot):
                 self.max_sentence_len)
         self.context_sentences = tf.placeholder(dtype=tf.int32,
             shape=(self.batch_size, 
-                self.max_conversation_length, self.max_sentence_len)
+                self.max_conversation_length * self.max_sentence_len)
         self.response = tf.placeholder(tf.int32, shape=(self.batch_size, self.max_sentence_len))
 
         # input lengths
@@ -168,5 +199,26 @@ class ProfileMemoryBot(Chatbot):
         
     
     def train(self, training_data, test_data, num_epochs=1000000):
-        def get_training_batch():
-            pass
+        dot_interval = 30
+        dots_per_line = 60
+
+        for i in range(num_epochs):
+            if print_training == True:
+                if i % dot_interval == 0:
+                    print('.', end='')
+                    sys.stdout.flush()
+                if i % (dot_interval * dots_per_line) == 0:
+                    print()
+                    print("epoch: " + str(i) + " ", end='')
+
+            # get training batch
+            personas, sentences, responses, persona_lens, sentence_lens, \
+                response_lens = get_training_batch_full(
+                training_data, self.batch_size, self.max_sentence_len, 
+                self.max_conversation_len, self.max_persona_sentences)
+
+            # feed into model
+        
+
+
+
