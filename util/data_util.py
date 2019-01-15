@@ -114,7 +114,7 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
         persona_lens.append(len(persona_sentence))
 
     # choose a random piece of the conversation
-    index = random.randint(0, len(conversation)-1)
+    index = random.randint(0, len(chat.chat)-1)
 
     # load the previous conversation
     conversation = []
@@ -151,7 +151,16 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
         new_sentence = sentence_to_np(sentence, max_sentence_len)
         persona[i] = new_sentence
 
-    conversation = sentence_to_np(conversation, max_sentence_len * max_conversation_len)
+    # pad persona sentences
+    while len(persona) < max_persona_sentences:
+        pad_sentence = np.zeros(max_sentence_len, dtype=np.int32)
+        persona.append(pad_sentence)
+        persona_lens.append(0)
+    persona_lens = np.array(persona_lens, dtype=np.int32)
+    persona = np.array(persona, dtype=np.int32)
+
+    conversation = sentence_to_np(conversation, 
+            max_sentence_len * max_conversation_len)
     response = sentence_to_np(response, max_sentence_len)
 
     return persona, conversation, response, persona_lens, \
