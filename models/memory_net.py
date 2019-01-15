@@ -162,15 +162,22 @@ class ProfileMemoryBot(Chatbot):
     def setup_encoder(self):
         with tf.name_scope('encoder'):
             # build encoder
-            # TODO change to bi-directional rnn
-            encoder_cell = self.get_lstm_cell()
-            self.encoder_outputs, self.encoder_final_state = tf.nn.dynamic_rnn(
-                    cell = encoder_cell,
+            encoder_cell_fw = self.get_lstm_cell()
+            encoder_cell_bw = self.get_lstm_cell()
+
+            self.encoder_outputs, self.encoder_final_state = \
+            encoder_outputs, encoder_states = \
+                    tf.nn.bidirectional_dynamic_rnn(
+                    cell_fw = encoder_cell_fw,
+                    cell_bw = encoder_cell_bw,
                     inputs = self.encoder_embedding_input,
                     sequence_length = self.context_sentence_lens,
                     time_major = False,
                     dtype = tf.float32,
                     scope = "encoder_rnn")
+
+            self.encoder_outputs = encoder_outputs
+            self.encoder_final_state = tf.concat(encoder_states, 2)
             
             # set up summary histograms
             weights, biases = encoder_cell.variables
