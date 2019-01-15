@@ -25,7 +25,7 @@ class Chatbot(object):
         self.max_gradient_norm = 3.0
         self.learning_rate = 4.7 * 10**-3
         self.train_steps = 1000000
-        self.batch_size = 32
+        self.batch_size = 1
 
         # build model
         self.build_model()
@@ -40,7 +40,7 @@ class Chatbot(object):
         self.sess.run(tf.global_variables_initializer())
 
         # initialize embeddings
-        self.sess.run(embedding_init, feed_dict={embedding_placeholder: self.word2vec})
+        self.sess.run(self.embedding_init, feed_dict={self.embedding_placeholder: self.word2vec})
 
     def build_model(self):
         raise Exception("virtual method! Implement in subclass.")

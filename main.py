@@ -49,8 +49,8 @@ tf.app.flags.DEFINE_integer('max_persona_len', 0,
         at runtime')
 
 # logging
-#logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
-logging.basicConfig(stream=sys.stderr, level=logging.CRITICAL)
+logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+#logging.basicConfig(stream=sys.stderr, level=logging.CRITICAL)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -100,6 +100,7 @@ def main(_):
         sess = tf_debug.TensorBoardDebugWrapperSession(sess, 'localhost:6064')
 
     #model = Seq2SeqBot(FLAGS, sess, word2vec, id2word)
+    logging.debug('building model')
     model = ProfileMemoryBot(FLAGS, sess, word2vec, id2word)
 
     # perform parameter search
@@ -110,6 +111,7 @@ def main(_):
 
     model.perform_parameter_search(parameter_ranges, train_data)
     """
+    logging.debug('training model')
     model.train(train_data, test_data)
 
     sess.close()
