@@ -135,28 +135,81 @@ class ProfileMemoryBot(Chatbot):
                 tf.summary.histogram("projection_layer_bias", bias)
     
     def setup_profile_memory(self):
-        # encode each persona sentence with a universal sentence encoder
-        # get sentence encoder
-        # TODO potential bug sentence encoder may not play well with the
-        # pre-processed input.
-        embedder = hub.Module("https://tfhub.dev/google/universal-sentence-encoder-lite/2")
+        # encode each persona with a bidirectional lstm
+        with tf.name_scope('profile_memory_encoder'):
+            profile_cell_fw = self.get_lstm_cell()
+            profile_cell_bw = self.get_lstm_cell()
 
-        # convert persona sentences back to text
-        persona_list = tf.nn.embedding_lookup(self.id2word, self.persona_sentences)
-        persona_sentences = tf.strings.reduce_join(persona_list, separator=' ',
-                axis=2)
-        desired_shape = persona_sentences.shape
-        # flatten so we can put it through the embedder
-        persona_sentences = tf.reshape(persona_sentences, [-1])
+            """
+            self.encoded_personas = tf.zeros(shape=(
+                self.batch_size, 
+                self.max_persona_sentences,
+                self.n_hidden * 2))
+            """
 
-        # feed into embedder and get embeddings
-        self.encoded_personas = embedder(persona_sentences)
-        encoder_dim = 512
+            encoding_array = tf.TensorArray(
+                    dtype = tf.float32, 
+                    size = self.max_persona_sentences,
+                    element_shape = (
+                        self.batch_size, self.n_hidden*2))
 
-        # unflatten
-        # TODO investigate. Not sure if this outputs what we want.
-        self.encoded_personas = tf.reshape(self.encoded_personas, 
-                [desired_shape[0], desired_shape[1], encoder_dim])
+            encoding_array.write(0, tf.zeros(
+                shape=(self.batch_size, self.n_hidden*2),
+                dtype=tf.float32))
+
+            i = tf.Variable(0)
+
+            def body(i, current_encoding_array):
+                # extract out the next persona sentence
+                # across all batches
+                current_p_sentence = self.persona_embedding_input[:, i, :]
+                current_sentence_lens = self.persona_sentence_lens[:, i]
+
+                # encode the current value
+                outputs, final_states = tf.nn.bidirectional_dynamic_rnn(
+                    cell_fw = profile_cell_fw,
+                    cell_bw = profile_cell_bw,
+                    inputs = current_p_sentence,
+                    sequence_length = current_sentence_lens,
+                    time_major = False,
+                    dtype = tf.float32,
+                    scope = "profile_memory_rnn")
+
+                # set the current sentence of the embedding
+                logging.debug("final states: " +
+                        str(final_states[0].c.shape) + ", " + 
+                        str(final_states[1].c.shape))
+                concat_states = tf.concat(
+                        [final_states[0].c, final_states[1].c],
+                        axis = 1)
+                logging.debug("state output: " +
+                        str(concat_states.shape))
+
+                current_encoding_array.write(i, concat_states)
+
+                # increment one in the count
+                return (i + 1, current_encoding_array)
+
+            def condition(i, current_encoding_array):
+                # if we have encoded all the things in the batch
+                # then stop
+                return i < self.max_persona_sentences
+
+            tf.while_loop(
+                    cond = condition, 
+                    body = body, 
+                    loop_vars = [i, encoding_array])
+
+            self.encoded_personas = encoding_array.stack()
+
+            logging.debug("encoded personas shape: " +
+                    str(self.encoded_personas.shape))
+
+            self.encoded_personas = tf.transpose(
+                    self.encoded_personas, [1, 0, 2])
+            logging.debug("shape after transpose: " +
+                    str(self.encoded_personas.shape))
+
 
 
     def setup_encoder(self):
@@ -165,7 +218,6 @@ class ProfileMemoryBot(Chatbot):
             encoder_cell_fw = self.get_lstm_cell()
             encoder_cell_bw = self.get_lstm_cell()
 
-            self.encoder_outputs, self.encoder_final_state = \
             encoder_outputs, encoder_states = \
                     tf.nn.bidirectional_dynamic_rnn(
                     cell_fw = encoder_cell_fw,
@@ -180,9 +232,12 @@ class ProfileMemoryBot(Chatbot):
             self.encoder_final_state = tf.concat(encoder_states, 2)
             
             # set up summary histograms
-            weights, biases = encoder_cell.variables
-            tf.summary.histogram("encoder_cell_weights", weights)
-            tf.summary.histogram("encoder_cell_biases", biases)
+            weights, biases = encoder_cell_fw.variables
+            tf.summary.histogram("encoder_cell_fw_weights", weights)
+            tf.summary.histogram("encoder_cell_fw_biases", biases)
+            weights, biases = encoder_cell_bw.variables
+            tf.summary.histogram("encoder_cell_bw_weights", weights)
+            tf.summary.histogram("encoder_cell_bw_biases", biases)
 
     def setup_embeddings(self):
         # embeddings
