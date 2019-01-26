@@ -90,8 +90,10 @@ class ProfileMemoryBot(Chatbot):
         self.train_op = optimizer.apply_gradients(
                 zip(clipped_gradients, params), global_step=global_step)
 
-    def get_lstm_cell(self):
-        return tf.contrib.rnn.LSTMCell(self.n_hidden)
+    def get_lstm_cell(self, num_units=None):
+        if num_units is None:
+            num_units = self.n_hidden
+        return tf.contrib.rnn.LSTMCell(num_units)
 
     def setup_decoder(self):
         with tf.name_scope('decoder'):
@@ -100,12 +102,17 @@ class ProfileMemoryBot(Chatbot):
                     num_units = self.n_hidden,
                     memory = self.encoded_personas)
             decoder_cell = self.get_lstm_cell()
+
             decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
                     decoder_cell, attention_mechanism,
                     attention_layer_size=self.n_hidden)
 
             decoder_initial_state = decoder_cell.zero_state(self.batch_size, 
-                    dtype=tf.float32).clone(cell_state=self.encoder_final_state)
+                    dtype=tf.float32)
+            decoder_inital_state = decoder_initial_state.clone(
+                    cell_state=self.encoder_final_state)
+
+
             self.decoder_outputs, self.decoder_final_state = tf.nn.dynamic_rnn(
                     cell = decoder_cell,
                     inputs = self.decoder_embedding_input,
@@ -140,22 +147,11 @@ class ProfileMemoryBot(Chatbot):
             profile_cell_fw = self.get_lstm_cell()
             profile_cell_bw = self.get_lstm_cell()
 
-            """
-            self.encoded_personas = tf.zeros(shape=(
-                self.batch_size, 
-                self.max_persona_sentences,
-                self.n_hidden * 2))
-            """
-
             encoding_array = tf.TensorArray(
                     dtype = tf.float32, 
                     size = self.max_persona_sentences,
                     element_shape = (
                         self.batch_size, self.n_hidden*2))
-
-            encoding_array.write(0, tf.zeros(
-                shape=(self.batch_size, self.n_hidden*2),
-                dtype=tf.float32))
 
             i = tf.Variable(0)
 
@@ -215,10 +211,23 @@ class ProfileMemoryBot(Chatbot):
     def setup_encoder(self):
         with tf.name_scope('encoder'):
             # build encoder
+            encoder_cell = self.get_lstm_cell()
+
+            encoder_outputs, self.encoder_final_state = \
+                    tf.nn.dynamic_rnn(
+                            cell=encoder_cell,
+                            inputs=self.encoder_embedding_input,
+                            sequence_length = self.context_sentence_lens,
+                            time_major = False,
+                            dtype = tf.float32,
+                            scope = "encoder_rnn")
+            
+
+            """ Bidirectional encoder TODO remove
             encoder_cell_fw = self.get_lstm_cell()
             encoder_cell_bw = self.get_lstm_cell()
 
-            encoder_outputs, encoder_states = \
+            encoder_outputs, encoder_final_states = \
                     tf.nn.bidirectional_dynamic_rnn(
                     cell_fw = encoder_cell_fw,
                     cell_bw = encoder_cell_bw,
@@ -229,7 +238,11 @@ class ProfileMemoryBot(Chatbot):
                     scope = "encoder_rnn")
 
             self.encoder_outputs = encoder_outputs
-            self.encoder_final_state = tf.concat(encoder_states, 2)
+
+            self.encoder_final_state = tf.concat(
+                    [encoder_final_states[0].c,
+                        encoder_final_states[1].c],
+                    axis=1)
             
             # set up summary histograms
             weights, biases = encoder_cell_fw.variables
@@ -238,6 +251,7 @@ class ProfileMemoryBot(Chatbot):
             weights, biases = encoder_cell_bw.variables
             tf.summary.histogram("encoder_cell_bw_weights", weights)
             tf.summary.histogram("encoder_cell_bw_biases", biases)
+            """
 
     def setup_embeddings(self):
         # embeddings
@@ -310,6 +324,7 @@ class ProfileMemoryBot(Chatbot):
                 training_data, self.batch_size, self.max_sentence_len, 
                 self.max_conversation_len, self.max_persona_sentences)
 
+            """
             logging.debug("personas: " + str(personas))
             logging.debug("sentences: " + str(sentences))
             logging.debug("responses: " + str(responses))
@@ -330,6 +345,7 @@ class ProfileMemoryBot(Chatbot):
             logging.debug(persona_lens.shape)
             logging.debug(sentence_lens.shape)
             logging.debug(response_lens.shape)
+            """
 
             # feed into model
             feed_dict = {
