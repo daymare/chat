@@ -22,10 +22,17 @@ class Chatbot(object):
 
         # hyperparams
         self.n_hidden = config.hidden_size
-        self.max_gradient_norm = 3.0
-        self.learning_rate = 4.7 * 10**-3
-        self.train_steps = 1000000
-        self.batch_size = 1
+        self.max_gradient_norm = config.max_gradient_norm
+        self.learning_rate = config.learning_rate
+        self.num_epochs = config.num_epochs
+        self.batch_size = config.batch_size
+
+        # trianing params
+        self.save_frequency = config.save_frequency
+        self.save_summary = config.save_summary
+        self.print_training = config.print_training
+        self.print_dot_interval = config.print_dot_interval
+        self.dots_per_line = config.dots_per_line
 
         # build model
         self.build_model()

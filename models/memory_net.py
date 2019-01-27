@@ -307,20 +307,13 @@ class ProfileMemoryBot(Chatbot):
             shape=(self.batch_size))
         
     
-    def train(self, training_data, test_data, num_epochs=1000000,
-            save_summary=True, print_training=True):
-        # TODO move save summary and print training to parameters
-        # TODO move num epochs to parameter
-        # TODO move to parameters
-        dot_interval = 30
-        dots_per_line = 60
-
-        for i in range(num_epochs):
-            if print_training == True:
-                if i % dot_interval == 0:
+    def train(self, training_data, test_data):
+        for i in range(self.num_epochs):
+            if self.print_training == True:
+                if i % self.print_dot_interval == 0:
                     print('.', end='')
                     sys.stdout.flush()
-                if i % (dot_interval * dots_per_line) == 0:
+                if i % (self.print_dot_interval * self.dots_per_line) == 0:
                     print()
                     print("epoch: " + str(i) + " ", end='')
 
@@ -363,9 +356,8 @@ class ProfileMemoryBot(Chatbot):
                 self.response_sentence_len : response_lens
                 }
             
-            # TODO move to parameter
-            save_frequency = 100
-            if save_summary == True and i % 100 == 0:
+            if self.save_summary == True and \
+                    i % self.save_frequency == 0:
                 _, summary = self.sess.run(
                     [self.train_op, self.summaries],
                     feed_dict=feed_dict)

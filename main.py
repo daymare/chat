@@ -22,20 +22,47 @@ FLAGS = tf.app.flags.FLAGS
 # TODO default flag for metadata filepath
 
 # dataset flags
-tf.app.flags.DEFINE_boolean('load_dataset', False, 'load the dataset from pickle?')
-tf.app.flags.DEFINE_string('dataset_file', './data/persona_data.txt',
+tf.app.flags.DEFINE_boolean('load_dataset', 
+        False, 'load the dataset from pickle?')
+tf.app.flags.DEFINE_string('dataset_file', 
+        './data/persona_data.txt',
         'file containing the dataset')
-tf.app.flags.DEFINE_string('pickle_filepath', './data/dataset.pickle',
+tf.app.flags.DEFINE_string('pickle_filepath', 
+        './data/dataset.pickle',
         'filepath to the saved dataset pickle')
 tf.app.flags.DEFINE_integer('embedding_dim', '300', 
         'number of dimensions of word embeddings')
-tf.app.flags.DEFINE_string('embedding_fname', 'data/glove.6B.300d.txt',
+tf.app.flags.DEFINE_string('embedding_fname', 
+        'data/glove.6B.300d.txt',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_integer('hidden_size', 600, 'size of the hidden layers')
+tf.app.flags.DEFINE_integer('hidden_size', 
+        600, 'size of the hidden layers')
+tf.app.flags.DEFINE_float('max_gradient_norm',
+        3.0, 'max gradient norm to clip to during training')
+tf.app.flags.DEFINE_float('learning_rate',
+        4.7 * 10**-4, 'learning rate during training')
+tf.app.flags.DEFINE_integer('num_epochs',
+        1000000, 'number of training steps to train for')
+tf.app.flags.DEFINE_integer('batch_size',
+        32, 'batch size')
 
-tf.app.flags.DEFINE_boolean('debug', False, 'run in debug mode?')
+# training flags
+tf.app.flags.DEFINE_boolean('save_summary',
+        True, 'controls whether summaries are saved during training.')
+tf.app.flags.DEFINE_integer('save_frequency',
+        100, 'number of epochs between summary saves')
+tf.app.flags.DEFINE_boolean('print_training',
+        True, 'controls whether training progress is printed')
+tf.app.flags.DEFINE_integer('print_dot_interval',
+        30, 'number of epochs between dot prints to screen')
+tf.app.flags.DEFINE_integer('dots_per_line',
+        60, 'number of dots printed between newlines')
+
+
+tf.app.flags.DEFINE_boolean('debug', 
+        False, 'run in debug mode?')
 
 # runtime "flags"
 tf.app.flags.DEFINE_integer('max_sentence_len', 0, 
@@ -88,7 +115,6 @@ def main(_):
     print('splitting dataset')
     train_size = int(len(dataset) * 0.9)
 
-    # TODO revert after testing
     train_data = dataset[:train_size]
     test_data = dataset[train_size:] # test is remainder after training
 
@@ -111,6 +137,7 @@ def main(_):
 
     model.perform_parameter_search(parameter_ranges, train_data)
     """
+    
     logging.debug('training model')
     model.train(train_data, test_data)
 
