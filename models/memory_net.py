@@ -184,7 +184,10 @@ class ProfileMemoryBot(Chatbot):
                 logging.debug("state output: " +
                         str(concat_states.shape))
 
-                current_encoding_array.write(i, concat_states)
+                write_output = current_encoding_array.write(
+                        i, concat_states)
+                write_output.mark_used()
+
 
                 # increment one in the count
                 return (i + 1, current_encoding_array)
