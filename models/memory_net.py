@@ -23,6 +23,7 @@ class ProfileMemoryBot(Chatbot):
         self.max_persona_sentences = config.max_persona_len
         self.max_conversation_len = config.max_conversation_len
 
+
         Chatbot.__init__(self, config, sess, word2vec, id2word)
 
 
@@ -55,12 +56,14 @@ class ProfileMemoryBot(Chatbot):
         self.loss = tf.reduce_mean(cross_entropy)
 
         # summaries for loss
-        tf.summary.histogram('loss', self.loss)
+        tf.summary.scalar('loss', self.loss)
 
         # summaries for perplexity
         mean_perplexity, var_perplexity = tf.nn.moments(self.perplexity, 1)
         mean_perplexity = tf.reduce_mean(mean_perplexity)
         var_perplexity = tf.reduce_mean(var_perplexity)
+        tf.summary.scalar('mean_perplexity', mean_perplexity)
+        tf.summary.scalar('var_perplexity', var_perplexity)
 
         # summarize the text input and output
         output_example = self.logits[0] # shape (max_sentence_len, dictionary_size)
