@@ -323,30 +323,7 @@ class ProfileMemoryBot(Chatbot):
                 training_data, self.batch_size, self.max_sentence_len, 
                 self.max_conversation_len, self.max_persona_sentences)
 
-            """
-            logging.debug("personas: " + str(personas))
-            logging.debug("sentences: " + str(sentences))
-            logging.debug("responses: " + str(responses))
-            logging.debug("persona_lens: " + str(persona_lens))
-            logging.debug("sentence_lens: " + str(sentence_lens))
-            logging.debug("response_lens: " + str(response_lens))
-
-            logging.debug(type(personas))
-            logging.debug(type(sentences))
-            logging.debug(type(responses))
-            logging.debug(type(persona_lens))
-            logging.debug(type(sentence_lens))
-            logging.debug(type(response_lens))
-
-            logging.debug(personas.shape)
-            logging.debug(sentences.shape)
-            logging.debug(responses.shape)
-            logging.debug(persona_lens.shape)
-            logging.debug(sentence_lens.shape)
-            logging.debug(response_lens.shape)
-            """
-
-            # feed into model
+            # build feed dict
             feed_dict = {
                 self.persona_sentences : personas,
                 self.context_sentences : sentences,
