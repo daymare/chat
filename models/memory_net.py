@@ -308,6 +308,14 @@ class ProfileMemoryBot(Chatbot):
         
     
     def train(self, training_data, test_data):
+        recent_losses = []
+        recent_perplexities = []
+
+        def add_recent_value(recent_list, new_value, max_values=100):
+            recent_list.append(new_value)
+            if len(recent_list) > max_values:
+                recent_list.pop(0)
+
         for i in range(self.num_epochs):
             if self.print_training == True:
                 if i % self.print_dot_interval == 0:
@@ -332,18 +340,33 @@ class ProfileMemoryBot(Chatbot):
                 self.context_sentence_lens : sentence_lens,
                 self.response_sentence_len : response_lens
                 }
+
+            loss = None
+            perplexity = None
             
+            # feed into model
             if self.save_summary == True and \
                     i % self.save_frequency == 0:
-                _, summary = self.sess.run(
-                    [self.train_op, self.summaries],
+                _, loss, perplexity, summary = self.sess.run(
+                    [self.train_op, self.loss, self.perplexity, 
+                        self.summaries],
                     feed_dict=feed_dict)
                 self.writer.add_summary(summary, i)
             else:
-                _ = self.sess.run(
-                    [self.train_op], feed_dict=feed_dict)
+                _, loss, perplexity = self.sess.run(
+                    [self.train_op, self.loss,
+                        self.perplexity], feed_dict=feed_dict)
 
-        
+            add_recent_value(recent_losses, loss)
+            add_recent_value(recent_perplexities, perplexity)
+
+        # return final loss and perplexity
+        average_recent_loss = sum(recent_losses) / \
+                float(len(recent_losses))
+        average_recent_perplexities = sum(recent_perplexities) / \
+                float(len(recent_perplexities))
+
+        return average_recent_loss, average_recent_perplexities
 
 
 
