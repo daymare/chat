@@ -317,6 +317,7 @@ class ProfileMemoryBot(Chatbot):
                 recent_list.pop(0)
 
         for i in range(self.num_epochs):
+            # print training progress
             if self.print_training == True:
                 if i % self.print_dot_interval == 0:
                     print('.', end='')
@@ -359,6 +360,18 @@ class ProfileMemoryBot(Chatbot):
 
             add_recent_value(recent_losses, loss)
             add_recent_value(recent_perplexities, perplexity)
+
+            # save the model
+            if self.save_model and \
+            i % self.model_save_interval == 0:
+                print()
+                print()
+                print("saving model")
+                print()
+
+                self.saver.save(self.sess, 
+                        self.model_save_filepath)
+
 
         # return final loss and perplexity
         average_recent_loss = sum(recent_losses) / \

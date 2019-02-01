@@ -59,6 +59,15 @@ tf.app.flags.DEFINE_integer('print_dot_interval',
         20, 'number of epochs between dot prints to screen')
 tf.app.flags.DEFINE_integer('dots_per_line',
         45, 'number of dots printed between newlines')
+tf.app.flags.DEFINE_integer('model_save_interval',
+        10000, 'number of epochs between model saves')
+tf.app.flags.DEFINE_boolean('save_model',
+        True, 'whether to save the model or not')
+tf.app.flags.DEFINE_string('model_save_filepath',
+        './train/model.ckpt', 'where to save the model')
+tf.app.flags.DEFINE_boolean('load_model',
+        False, 
+        'whether to load the model from file or not for training.')
 
 
 tf.app.flags.DEFINE_boolean('debug', 
@@ -122,14 +131,22 @@ def main(_):
     print('training')
 
     sess = tf.Session()
+
+    # debugger setup
     if FLAGS.debug == True:
         sess = tf_debug.TensorBoardDebugWrapperSession(sess, 'localhost:6064')
+
 
     #model = Seq2SeqBot(FLAGS, sess, word2vec, id2word)
     # TODO add flags and control flow for parameter search
     logging.debug('building model')
     model = ProfileMemoryBot(FLAGS, sess, word2vec, id2word)
 
+    # load model
+    # TODO add check to ensure the file exists
+    if FLAGS.load_model == True:
+        print("loading model")
+        model.load_model()
     
     logging.debug('training model')
     model.train(train_data, test_data)

@@ -33,9 +33,15 @@ class Chatbot(object):
         self.print_training = config.print_training
         self.print_dot_interval = config.print_dot_interval
         self.dots_per_line = config.dots_per_line
+        self.model_save_interval = config.model_save_interval
+        self.save_model = config.save_model
+        self.model_save_filepath = config.model_save_filepath
 
         # build model
         self.build_model()
+
+        # saver
+        self.saver = tf.train.Saver()
 
         # file writer
         self.writer = tf.summary.FileWriter('./train', sess.graph)
@@ -48,6 +54,9 @@ class Chatbot(object):
 
         # initialize embeddings
         self.sess.run(self.embedding_init, feed_dict={self.embedding_placeholder: self.word2vec})
+
+    def load_model(self):
+        self.saver.restore(self.sess, self.model_save_filepath)
 
     def build_model(self):
         raise Exception("virtual method! Implement in subclass.")
