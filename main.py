@@ -13,7 +13,7 @@ from util.data_util import get_data_info, convert_to_id
 from models.seq2seq import Seq2SeqBot
 from models.memory_net import ProfileMemoryBot
 
-#tf.enable_eager_execution()
+from tools.parameter_search import perform_parameter_search
 
 
 FLAGS = tf.app.flags.FLAGS
@@ -38,11 +38,11 @@ tf.app.flags.DEFINE_string('embedding_fname',
 
 # model flags
 tf.app.flags.DEFINE_integer('hidden_size', 
-        600, 'size of the hidden layers')
+        963, 'size of the hidden layers')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
 tf.app.flags.DEFINE_float('learning_rate',
-        4.7 * 10**-4, 'learning rate during training')
+        0.000128, 'learning rate during training')
 tf.app.flags.DEFINE_integer('num_epochs',
         1000000, 'number of training steps to train for')
 tf.app.flags.DEFINE_integer('batch_size',
@@ -56,9 +56,9 @@ tf.app.flags.DEFINE_integer('save_frequency',
 tf.app.flags.DEFINE_boolean('print_training',
         True, 'controls whether training progress is printed')
 tf.app.flags.DEFINE_integer('print_dot_interval',
-        30, 'number of epochs between dot prints to screen')
+        20, 'number of epochs between dot prints to screen')
 tf.app.flags.DEFINE_integer('dots_per_line',
-        60, 'number of dots printed between newlines')
+        45, 'number of dots printed between newlines')
 
 
 tf.app.flags.DEFINE_boolean('debug', 
@@ -76,8 +76,8 @@ tf.app.flags.DEFINE_integer('max_persona_len', 0,
         at runtime')
 
 # logging
-logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
-#logging.basicConfig(stream=sys.stderr, level=logging.CRITICAL)
+#logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stderr, level=logging.CRITICAL)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -126,8 +126,14 @@ def main(_):
         sess = tf_debug.TensorBoardDebugWrapperSession(sess, 'localhost:6064')
 
     #model = Seq2SeqBot(FLAGS, sess, word2vec, id2word)
+    # TODO add flags and control flow for parameter search
     logging.debug('building model')
     model = ProfileMemoryBot(FLAGS, sess, word2vec, id2word)
+
+    
+    logging.debug('training model')
+    model.train(train_data, test_data)
+
 
     # perform parameter search
     """
@@ -135,11 +141,10 @@ def main(_):
     parameter_ranges["learning_rate"] = (-12, -2)
     parameter_ranges["hidden_size"] = (10, 1000)
 
-    model.perform_parameter_search(parameter_ranges, train_data)
+    perform_parameter_search(ProfileMemoryBot, sess, FLAGS,
+            word2vec, id2word, parameter_ranges,
+            train_data)
     """
-    
-    logging.debug('training model')
-    model.train(train_data, test_data)
 
     sess.close()
 
