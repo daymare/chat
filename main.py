@@ -122,7 +122,8 @@ def main(_):
 
     # split into train and test
     print('splitting dataset')
-    train_size = int(len(dataset) * 0.9)
+    #train_size = int(len(dataset) * 0.9)
+    train_size = len(dataset)
 
     train_data = dataset[:train_size]
     test_data = dataset[train_size:] # test is remainder after training
