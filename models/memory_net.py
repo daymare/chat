@@ -66,19 +66,28 @@ class ProfileMemoryBot(Chatbot):
         tf.summary.scalar('var_perplexity', var_perplexity)
 
         # summarize the text input and output
-        output_example = self.logits[0] # shape (max_sentence_len, dictionary_size)
+        # shape (max_sentence_len, dictionary_size)
+        output_example = self.logits[0] 
         # convert logits to ids
-        example_predictions = tf.argmax(output_example, 1) # shape (max_sentence_len)
+        # shape (max_sentence_len)
+        example_predictions = tf.argmax(output_example, 1) 
         # convert ids to sentence
-        example_input_list = tf.nn.embedding_lookup(self.id2word, self.context_sentences[0])
-        example_response_list = tf.nn.embedding_lookup(self.id2word, self.response[0])
-        example_text_list = tf.nn.embedding_lookup(self.id2word, example_predictions)
+        example_input_list = tf.nn.embedding_lookup(
+                self.id2word, self.context_sentences[0])
+        example_response_list = tf.nn.embedding_lookup(
+                self.id2word, self.response[0])
+        example_text_list = tf.nn.embedding_lookup(
+                self.id2word, example_predictions)
         # build sentences
-        example_sentence = tf.strings.reduce_join(example_input_list, separator=' ')
-        example_response = tf.strings.reduce_join(example_response_list, separator=' ')
-        example_text = tf.strings.reduce_join(example_text_list, separator=' ')
-        example_output = tf.strings.join(["input: ", example_sentence,
-            "\nresponse: ", example_response, "\nmodel response: ", example_text])
+        example_sentence = tf.strings.reduce_join(
+                example_input_list, separator=' ')
+        example_response = tf.strings.reduce_join(
+                example_response_list, separator=' ')
+        example_text = tf.strings.reduce_join(
+                example_text_list, separator=' ')
+        example_output = tf.strings.join(["input: ", 
+            example_sentence, "\nresponse: ", example_response, 
+            "\nmodel response: ", example_text])
         tf.summary.text('example_output', example_output)
 
         # gradients
