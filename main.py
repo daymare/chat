@@ -64,7 +64,7 @@ tf.app.flags.DEFINE_integer('model_save_interval',
 tf.app.flags.DEFINE_boolean('save_model',
         True, 'whether to save the model or not')
 tf.app.flags.DEFINE_string('model_save_filepath',
-        './train/model.ckpt', 'where to save the model')
+        './train/model_save/model.ckpt', 'where to save the model')
 tf.app.flags.DEFINE_boolean('load_model',
         False, 
         'whether to load the model from file or not for training.')
@@ -126,21 +126,20 @@ def main(_):
     train_size = len(dataset)
 
     train_data = dataset[:train_size]
-    test_data = dataset[train_size:] # test is remainder after training
-
-    # run training
-    print('training')
+    # test is remainder after training
+    test_data = dataset[train_size:] 
 
     sess = tf.Session()
 
-    # debugger setup
+    # setup debugger
     if FLAGS.debug == True:
-        sess = tf_debug.TensorBoardDebugWrapperSession(sess, 'localhost:6064')
+        sess = tf_debug.TensorBoardDebugWrapperSession(
+                sess, 'localhost:6064')
 
 
-    #model = Seq2SeqBot(FLAGS, sess, word2vec, id2word)
     # TODO add flags and control flow for parameter search
     logging.debug('building model')
+    #model = Seq2SeqBot(FLAGS, sess, word2vec, id2word)
     model = ProfileMemoryBot(FLAGS, sess, word2vec, id2word)
 
     # load model
