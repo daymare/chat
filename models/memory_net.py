@@ -23,7 +23,6 @@ class ProfileMemoryBot(Chatbot):
         self.max_persona_sentences = config.max_persona_len
         self.max_conversation_len = config.max_conversation_len
 
-
         Chatbot.__init__(self, config, sess, word2vec, id2word)
 
 
@@ -43,6 +42,24 @@ class ProfileMemoryBot(Chatbot):
         logging.debug('setup training')
         self.setup_training()
 
+        logging.debug('setup output')
+        self.setup_output()
+
+    def setup_output(self):
+        """ setup the tensors necessary to do inference after
+        training
+        """
+        output_logits = self.inference_outputs[0]
+
+        logging.debug(output_logits)
+        sys.exit()
+
+        self.output_predictions = tf.argmax(output_logits, 1)
+        output_text_list = tf.nn.embedding_lookup(
+                self.id2word, self.output_predictions)
+        self.output_string = tf.strings.reduce_join(
+                output_text_list, separator=' ')
+
     def setup_training(self):
         # loss
         padded_response = tf.pad(self.response, [[0,0],[0,1]], "CONSTANT",
@@ -59,7 +76,8 @@ class ProfileMemoryBot(Chatbot):
         tf.summary.scalar('loss', self.loss)
 
         # summaries for perplexity
-        mean_perplexity, var_perplexity = tf.nn.moments(self.perplexity, 1)
+        mean_perplexity, var_perplexity = tf.nn.moments(
+                self.perplexity, 1)
         mean_perplexity = tf.reduce_mean(mean_perplexity)
         var_perplexity = tf.reduce_mean(var_perplexity)
         tf.summary.scalar('mean_perplexity', mean_perplexity)
@@ -102,31 +120,32 @@ class ProfileMemoryBot(Chatbot):
         self.train_op = optimizer.apply_gradients(
                 zip(clipped_gradients, params), global_step=global_step)
 
-    def get_lstm_cell(self, num_units=None):
+    def get_lstm_cell(self, num_units=None, name=None):
         if num_units is None:
             num_units = self.n_hidden
-        return tf.contrib.rnn.LSTMCell(num_units)
+        return tf.contrib.rnn.LSTMCell(num_units, name=name)
 
     def setup_decoder(self):
         with tf.name_scope('decoder'):
             # build decoder
             attention_mechanism = tf.contrib.seq2seq.LuongAttention(
-                    num_units = self.n_hidden,
+                    num_units = self.n_hidden, # TODO review exactly what this does
                     memory = self.encoded_personas)
-            decoder_cell = self.get_lstm_cell()
+            decoder_cell = self.get_lstm_cell(name="decoder_cell")
 
-            decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
+            decoder_cell_attn = tf.contrib.seq2seq.AttentionWrapper(
                     decoder_cell, attention_mechanism,
-                    attention_layer_size=self.n_hidden)
+                    attention_layer_size=self.n_hidden,
+                    name="decoder_cell_attn")
 
-            decoder_initial_state = decoder_cell.zero_state(self.batch_size, 
-                    dtype=tf.float32)
+            decoder_initial_state = decoder_cell_attn.zero_state(
+                    self.batch_size, dtype=tf.float32)
             decoder_inital_state = decoder_initial_state.clone(
                     cell_state=self.encoder_final_state)
 
-
+            # decoder rnn
             self.decoder_outputs, self.decoder_final_state = tf.nn.dynamic_rnn(
-                    cell = decoder_cell,
+                    cell = decoder_cell_attn,
                     inputs = self.decoder_embedding_input,
                     initial_state = decoder_initial_state,
                     dtype = tf.float32,
@@ -134,10 +153,72 @@ class ProfileMemoryBot(Chatbot):
                     scope = "decoder_rnn")
 
             # setup logits
-            self.logits = tf.layers.dense(
-                    inputs = self.decoder_outputs,
-                    units = self.vocab_size,
-                    name = "projection_layer")
+            projection_layer = tf.layers.Dense(
+                    units=self.vocab_size,
+                    name="projection_layer")
+
+            self.logits = projection_layer.apply(
+                    self.decoder_outputs)
+
+            # setup beam search decoder
+            # TODO make beam_width a parameter
+            beam_width = 12
+            tiled_encoder_final_state = \
+                tf.contrib.seq2seq.tile_batch(
+                    self.encoder_final_state,
+                    multiplier=beam_width)
+
+            tiled_personas = tf.contrib.seq2seq.tile_batch(
+                self.encoded_personas,
+                multiplier=beam_width)
+
+            inference_attention = tf.contrib.seq2seq.LuongAttention(
+                num_units = self.n_hidden, # TODO review exactly what this does
+                memory = tiled_personas)
+
+            inference_cell = tf.contrib.seq2seq.AttentionWrapper(
+                decoder_cell, inference_attention,
+                attention_layer_size = self.n_hidden,
+                name = "inference_cell")
+
+            inference_decoder_initial_state = \
+                inference_cell.zero_state(
+                        dtype=tf.float32,
+                        batch_size=self.batch_size * beam_width)
+
+            inference_decoder_initial_state = \
+                inference_decoder_initial_state.clone(
+                    cell_state=tiled_encoder_final_state)
+
+            # TODO potential bug, start token may have to be 
+            # different from end tokens
+            start_tokens = tf.fill([self.batch_size], 0)
+            end_token = 0
+
+            inference_decoder = \
+                tf.contrib.seq2seq.BeamSearchDecoder(
+                    cell = inference_cell,
+                    embedding = self.id2word,
+                    start_tokens = start_tokens,
+                    end_token = end_token,
+                    initial_state = inference_decoder_initial_state,
+                    beam_width = beam_width,
+                    output_layer = projection_layer
+                    )
+
+            # setup inference decoding
+            logging.debug("\n\n\n")
+            logging.debug("encoded_personas: " + str(self.encoded_personas))
+            logging.debug("encoder_final_state: " + str(self.encoder_final_state))
+            logging.debug("\n\n\n")
+
+            self.inference_outputs, _, self.inference_output_len = \
+                tf.contrib.seq2seq.dynamic_decode(
+                    decoder = inference_decoder,
+                    output_time_major=False)
+
+            sys.exit()
+
 
             # summary histogram for decoder cell
             # TODO figure out whatever the heck the third value of variables
@@ -184,14 +265,9 @@ class ProfileMemoryBot(Chatbot):
                     scope = "profile_memory_rnn")
 
                 # set the current sentence of the embedding
-                logging.debug("final states: " +
-                        str(final_states[0].c.shape) + ", " + 
-                        str(final_states[1].c.shape))
                 concat_states = tf.concat(
                         [final_states[0].c, final_states[1].c],
                         axis = 1)
-                logging.debug("state output: " +
-                        str(concat_states.shape))
 
                 write_output = current_encoding_array.write(
                         i, concat_states)
@@ -213,14 +289,8 @@ class ProfileMemoryBot(Chatbot):
 
             self.encoded_personas = encoding_array.stack()
 
-            logging.debug("encoded personas shape: " +
-                    str(self.encoded_personas.shape))
-
             self.encoded_personas = tf.transpose(
                     self.encoded_personas, [1, 0, 2])
-            logging.debug("shape after transpose: " +
-                    str(self.encoded_personas.shape))
-
 
 
     def setup_encoder(self):
@@ -290,6 +360,9 @@ class ProfileMemoryBot(Chatbot):
         # during training as the decoder will receive pad to start
         # TODO placeholder may need to be something else since pad also
         # signifies the end of the sentence.
+        # TODO experiment. See if shifting the response input
+        # back by 1 causes the decoder to learn to just reproduce
+        # it's input
         
         # decoder response input
         decoder_response_input = tf.pad(self.response, [[0,0], [1,0]], 
@@ -300,20 +373,21 @@ class ProfileMemoryBot(Chatbot):
     def setup_input(self):
         # input sentences
         self.persona_sentences = tf.placeholder(dtype=tf.int32, 
-            shape=(self.batch_size, self.max_persona_sentences, 
+            shape=(None, self.max_persona_sentences, 
                 self.max_sentence_len))
         self.context_sentences = tf.placeholder(dtype=tf.int32,
-            shape=(self.batch_size, 
+            shape=(None, 
                 self.max_conversation_len * self.max_sentence_len))
-        self.response = tf.placeholder(tf.int32, shape=(self.batch_size, self.max_sentence_len))
+        self.response = tf.placeholder(tf.int32, 
+                shape=(None, self.max_sentence_len))
 
         # input lengths
         self.persona_sentence_lens = tf.placeholder(dtype=tf.int32,
-            shape=(self.batch_size, self.max_persona_sentences))
+            shape=(None, self.max_persona_sentences))
         self.context_sentence_lens = tf.placeholder(dtype=tf.int32,
-            shape=(self.batch_size))
+            shape=(None))
         self.response_sentence_len = tf.placeholder(dtype=tf.int32,
-            shape=(self.batch_size))
+            shape=(None))
         
     
     def train(self, training_data, test_data):
