@@ -9,6 +9,7 @@ import numpy as np
 
 from util.load_util import load_word_embeddings, load_dataset
 from util.data_util import get_data_info, convert_to_id
+from inference.run_chat import run_inference
 
 from models.seq2seq import Seq2SeqBot
 from models.memory_net import ProfileMemoryBot
@@ -37,6 +38,8 @@ tf.app.flags.DEFINE_string('embedding_fname',
         'filepath of word embeddings')
 
 # model flags
+# TODO split this into multiple parameters as necessary
+# shouldn't have one size for everything
 tf.app.flags.DEFINE_integer('hidden_size', 
         963, 'size of the hidden layers')
 tf.app.flags.DEFINE_float('max_gradient_norm',
@@ -62,16 +65,19 @@ tf.app.flags.DEFINE_integer('dots_per_line',
 tf.app.flags.DEFINE_integer('model_save_interval',
         10000, 'number of epochs between model saves')
 tf.app.flags.DEFINE_boolean('save_model',
-        True, 'whether to save the model or not')
+        False, 'whether to save the model or not')
 tf.app.flags.DEFINE_string('model_save_filepath',
         './train/model_save/model.ckpt', 'where to save the model')
 tf.app.flags.DEFINE_boolean('load_model',
         False, 
         'whether to load the model from file or not for training.')
 
-
+# control flags
 tf.app.flags.DEFINE_boolean('debug', 
         False, 'run in debug mode?')
+tf.app.flags.DEFINE_boolean('run_inference',
+        True, 'run inference instead of training?')
+
 
 # runtime "flags"
 tf.app.flags.DEFINE_integer('max_sentence_len', 0, 
@@ -85,8 +91,8 @@ tf.app.flags.DEFINE_integer('max_persona_len', 0,
         at runtime')
 
 # logging
-#logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
-logging.basicConfig(stream=sys.stderr, level=logging.CRITICAL)
+logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+#logging.basicConfig(stream=sys.stderr, level=logging.CRITICAL)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -144,19 +150,24 @@ def main(_):
 
     # load model
     # TODO add check to ensure the file exists
-    if FLAGS.load_model == True:
+    if FLAGS.load_model == True or FLAGS.run_inference == True:
         print("loading model")
         model.load_model()
-    
-    logging.debug('training model')
-    model.train(train_data, test_data)
+
+    # run inference
+    if FLAGS.run_inference == True:
+        run_inference(model, dataset, word2id)
+    else:
+        # train model
+        logging.debug('training model')
+        model.train(train_data, test_data)
 
 
     # perform parameter search
     """
     parameter_ranges = {}
     parameter_ranges["learning_rate"] = (-12, -2)
-    parameter_ranges["hidden_size"] = (10, 1000)
+    parameter_ranges["hidden_size"] = (100, 100000)
 
     perform_parameter_search(ProfileMemoryBot, sess, FLAGS,
             word2vec, id2word, parameter_ranges,
