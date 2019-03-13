@@ -340,19 +340,25 @@ class ProfileMemoryBot(Chatbot):
 
     def setup_embeddings(self):
         # embeddings
+
+        # (vocab size, vocab dim) float32
         self.embeddings = tf.Variable(
-                tf.constant(0.0, shape=(self.vocab_size, self.vocab_dim)),
+                tf.constant(0.0, shape=(self.vocab_size, self.vocab_dim),
+                    dtype=tf.float32),
                 trainable=False, name="word_embeddings")
+        # (vocab size, vocab dim) float32
         self.embedding_placeholder = tf.placeholder(
                 dtype=tf.float32,
                 shape=(self.vocab_size, self.vocab_dim))
         self.embedding_init = self.embeddings.assign(self.embedding_placeholder)
 
         # persona input
+        # (?, max persona sentences, max sentence len, embedding dim) float32
         self.persona_embedding_input = tf.nn.embedding_lookup(self.embeddings,
                 self.persona_sentences)
 
         # embedding input
+        # (?, max conversationlen * max sentence len, embedding dim) int32
         self.encoder_embedding_input = tf.nn.embedding_lookup(self.embeddings,
                 self.context_sentences)
 
@@ -372,12 +378,16 @@ class ProfileMemoryBot(Chatbot):
 
     def setup_input(self):
         # input sentences
+        
+        # (?, max persona sentences, max sentence len) int32
         self.persona_sentences = tf.placeholder(dtype=tf.int32, 
             shape=(None, self.max_persona_sentences, 
                 self.max_sentence_len))
+        # (?, max conversation len * max sentence len) int32
         self.context_sentences = tf.placeholder(dtype=tf.int32,
             shape=(None, 
                 self.max_conversation_len * self.max_sentence_len))
+        # (?, max sentence len) int32
         self.response = tf.placeholder(tf.int32, 
                 shape=(None, self.max_sentence_len))
 
