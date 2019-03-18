@@ -12,6 +12,28 @@ import math
 
 class Chatbot(object):
     def __init__(self, config, sess, word2vec, id2word):
+        # load parameters
+        self._load_params(config)
+
+        # build model
+        self.build_model()
+
+        # saver
+        self.saver = tf.train.Saver()
+
+        # file writer
+        self.writer = tf.summary.FileWriter('./train', sess.graph)
+
+        # summaries
+        self.summaries = tf.summary.merge_all()
+
+        # global variables initialize
+        self.sess.run(tf.global_variables_initializer())
+
+        # initialize embeddings
+        self.sess.run(self.embedding_init, feed_dict={self.embedding_placeholder: self.word2vec})
+
+    def _load_params(self, config):
         self.max_sentence_len = config.max_sentence_len
 
         self.sess = sess
@@ -36,24 +58,6 @@ class Chatbot(object):
         self.model_save_interval = config.model_save_interval
         self.save_model = config.save_model
         self.model_save_filepath = config.model_save_filepath
-
-        # build model
-        self.build_model()
-
-        # saver
-        self.saver = tf.train.Saver()
-
-        # file writer
-        self.writer = tf.summary.FileWriter('./train', sess.graph)
-
-        # summaries
-        self.summaries = tf.summary.merge_all()
-
-        # global variables initialize
-        self.sess.run(tf.global_variables_initializer())
-
-        # initialize embeddings
-        self.sess.run(self.embedding_init, feed_dict={self.embedding_placeholder: self.word2vec})
 
     def load_model(self):
         self.saver.restore(self.sess, self.model_save_filepath)
