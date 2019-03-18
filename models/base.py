@@ -13,7 +13,7 @@ import math
 class Chatbot(object):
     def __init__(self, config, sess, word2vec, id2word):
         # load parameters
-        self._load_params(config)
+        self._load_params(config, sess, word2vec, id2word)
 
         # build model
         self.build_model()
@@ -33,7 +33,7 @@ class Chatbot(object):
         # initialize embeddings
         self.sess.run(self.embedding_init, feed_dict={self.embedding_placeholder: self.word2vec})
 
-    def _load_params(self, config):
+    def _load_params(self, config, sess, word2vec, id2word):
         self.max_sentence_len = config.max_sentence_len
 
         self.sess = sess
