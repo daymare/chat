@@ -25,7 +25,6 @@ class ProfileMemoryBot(Chatbot):
 
         Chatbot.__init__(self, config, sess, word2vec, id2word)
 
-
     def build_model(self):
         logging.debug('setup input')
         self.setup_input()
@@ -306,37 +305,6 @@ class ProfileMemoryBot(Chatbot):
                             time_major = False,
                             dtype = tf.float32,
                             scope = "encoder_rnn")
-            
-
-            """ Bidirectional encoder TODO remove
-            encoder_cell_fw = self.get_lstm_cell()
-            encoder_cell_bw = self.get_lstm_cell()
-
-            encoder_outputs, encoder_final_states = \
-                    tf.nn.bidirectional_dynamic_rnn(
-                    cell_fw = encoder_cell_fw,
-                    cell_bw = encoder_cell_bw,
-                    inputs = self.encoder_embedding_input,
-                    sequence_length = self.context_sentence_lens,
-                    time_major = False,
-                    dtype = tf.float32,
-                    scope = "encoder_rnn")
-
-            self.encoder_outputs = encoder_outputs
-
-            self.encoder_final_state = tf.concat(
-                    [encoder_final_states[0].c,
-                        encoder_final_states[1].c],
-                    axis=1)
-            
-            # set up summary histograms
-            weights, biases = encoder_cell_fw.variables
-            tf.summary.histogram("encoder_cell_fw_weights", weights)
-            tf.summary.histogram("encoder_cell_fw_biases", biases)
-            weights, biases = encoder_cell_bw.variables
-            tf.summary.histogram("encoder_cell_bw_weights", weights)
-            tf.summary.histogram("encoder_cell_bw_biases", biases)
-            """
 
     def setup_embeddings(self):
         # embeddings
