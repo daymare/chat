@@ -22,7 +22,10 @@ class Chatbot(object):
         self.saver = tf.train.Saver()
 
         # file writer
-        self.writer = tf.summary.FileWriter('./train', sess.graph)
+        if config.save_summary == True:
+            self.writer = tf.summary.FileWriter('./train', sess.graph)
+        else:
+            self.writer = None
 
         # summaries
         self.summaries = tf.summary.merge_all()
