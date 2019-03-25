@@ -65,7 +65,7 @@ def run_conversation(model, data, word2id):
             }
 
         a1_string_response, a1_id_response = model.sess.run(
-                [model.output_string, model.output_predictions],
+                [model.text_output, model.output_predictions],
                 feed_dict = feed_dict)
 
         # add to conversation

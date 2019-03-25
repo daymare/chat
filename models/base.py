@@ -52,6 +52,12 @@ class Chatbot(object):
         self.num_epochs = config.num_epochs
         self.batch_size = config.batch_size
 
+        # control params
+        if config.run_inference == True:
+            self.mode = "inference"
+        else:
+            self.mode = "train"
+
         # trianing params
         self.save_frequency = config.save_frequency
         self.save_summary = config.save_summary

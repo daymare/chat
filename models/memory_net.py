@@ -45,19 +45,34 @@ class ProfileMemoryBot(Chatbot):
         self.setup_output()
 
     def setup_output(self):
-        """ setup the tensors necessary to do inference after
-        training
-        """
-        output_logits = self.inference_outputs[0]
-
-        logging.debug(output_logits)
-        sys.exit()
-
-        self.output_predictions = tf.argmax(output_logits, 1)
+        ## get output text
+        # shape (max_sentence_len, dictionary_size)
+        output = self.logits[0] 
+        # convert logits to ids
+        # shape (max_sentence_len)
+        self.output_predictions = predictions = \
+                tf.argmax(output, 1) 
         output_text_list = tf.nn.embedding_lookup(
-                self.id2word, self.output_predictions)
-        self.output_string = tf.strings.reduce_join(
+                self.id2word, predictions)
+        self.text_output = tf.strings.reduce_join(
                 output_text_list, separator=' ')
+
+        ## get the dataset input and response text
+        # convert ids to sentence
+        context_list = tf.nn.embedding_lookup(
+                self.id2word, self.context_sentences[0])
+        response_list = tf.nn.embedding_lookup(
+                self.id2word, self.response[0])
+        # build sentences
+        context_sentence = tf.strings.reduce_join(
+                context_list, separator=' ')
+        response_sentence = tf.strings.reduce_join(
+                response_list, separator=' ')
+
+        ## summarize
+        tf.summary.text('output', self.text_output)
+        tf.summary.text('context_sentences', context_sentence)
+        tf.summary.text('dataset_response', response_sentence)
 
     def setup_training(self):
         # loss
@@ -82,30 +97,6 @@ class ProfileMemoryBot(Chatbot):
         tf.summary.scalar('mean_perplexity', mean_perplexity)
         tf.summary.scalar('var_perplexity', var_perplexity)
 
-        # summarize the text input and output
-        # shape (max_sentence_len, dictionary_size)
-        output_example = self.logits[0] 
-        # convert logits to ids
-        # shape (max_sentence_len)
-        example_predictions = tf.argmax(output_example, 1) 
-        # convert ids to sentence
-        example_input_list = tf.nn.embedding_lookup(
-                self.id2word, self.context_sentences[0])
-        example_response_list = tf.nn.embedding_lookup(
-                self.id2word, self.response[0])
-        example_text_list = tf.nn.embedding_lookup(
-                self.id2word, example_predictions)
-        # build sentences
-        example_sentence = tf.strings.reduce_join(
-                example_input_list, separator=' ')
-        example_response = tf.strings.reduce_join(
-                example_response_list, separator=' ')
-        example_text = tf.strings.reduce_join(
-                example_text_list, separator=' ')
-        example_output = tf.strings.join(["input: ", 
-            example_sentence, "\nresponse: ", example_response, 
-            "\nmodel response: ", example_text])
-        tf.summary.text('example_output', example_output)
 
         # gradients
         params = tf.trainable_variables()
@@ -126,105 +117,95 @@ class ProfileMemoryBot(Chatbot):
 
     def setup_decoder(self):
         with tf.name_scope('decoder'):
-            # build decoder
-            attention_mechanism = tf.contrib.seq2seq.LuongAttention(
-                    num_units = self.n_hidden, # TODO review exactly what this does
-                    memory = self.encoded_personas)
-            decoder_cell = self.get_lstm_cell(name="decoder_cell")
+            self.logits = tf.no_op()
 
-            decoder_cell_attn = tf.contrib.seq2seq.AttentionWrapper(
+            # build decoder cell
+            attention_mechanism = \
+                    tf.contrib.seq2seq.LuongAttention(
+                    num_units = self.n_hidden,
+                    memory = self.encoded_personas)
+            decoder_cell = self.get_lstm_cell(
+                    name="decoder_cell")
+
+            decoder_cell = \
+                    tf.contrib.seq2seq.AttentionWrapper(
                     decoder_cell, attention_mechanism,
                     attention_layer_size=self.n_hidden,
                     name="decoder_cell_attn")
 
-            decoder_initial_state = decoder_cell_attn.zero_state(
+            decoder_initial_state = \
+                    decoder_cell.zero_state(
                     self.batch_size, dtype=tf.float32)
-            decoder_inital_state = decoder_initial_state.clone(
+            decoder_inital_state = \
+                    decoder_initial_state.clone(
                     cell_state=self.encoder_final_state)
 
-            # decoder rnn
-            self.decoder_outputs, self.decoder_final_state = tf.nn.dynamic_rnn(
-                    cell = decoder_cell_attn,
-                    inputs = self.decoder_embedding_input,
-                    initial_state = decoder_initial_state,
-                    dtype = tf.float32,
-                    time_major = False,
-                    scope = "decoder_rnn")
-
-            # setup logits
+            # projection layer
             projection_layer = tf.layers.Dense(
                     units=self.vocab_size,
                     name="projection_layer")
 
-            self.logits = projection_layer.apply(
-                    self.decoder_outputs)
+            ## Train or Eval
+            if self.mode != "inference":
+                # training helper
+                helper = tf.contrib.seq2seq.TrainingHelper(
+                    self.decoder_embedding_input,
+                    self.response_sentence_len,
+                    time_major=False)
 
-            # setup beam search decoder
-            # TODO make beam_width a parameter
-            beam_width = 12
-            tiled_encoder_final_state = \
-                tf.contrib.seq2seq.tile_batch(
-                    self.encoder_final_state,
-                    multiplier=beam_width)
+                # decoder
+                decoder = tf.contrib.seq2seq.BasicDecoder(
+                    decoder_cell,
+                    helper,
+                    decoder_initial_state)
 
-            tiled_personas = tf.contrib.seq2seq.tile_batch(
-                self.encoded_personas,
-                multiplier=beam_width)
+                # dynamic decode
+                outputs, decoder_final_state, _ = \
+                        tf.contrib.seq2seq.dynamic_decode(
+                            decoder,
+                            output_time_major=False)
 
-            inference_attention = tf.contrib.seq2seq.LuongAttention(
-                num_units = self.n_hidden, # TODO review exactly what this does
-                memory = tiled_personas)
+                self.logits = projection_layer(
+                        outputs.rnn_output)
 
-            inference_cell = tf.contrib.seq2seq.AttentionWrapper(
-                decoder_cell, inference_attention,
-                attention_layer_size = self.n_hidden,
-                name = "inference_cell")
+                # summary histogram for decoder cell
+                decoder_variables = decoder_cell.variables
+                weights = decoder_variables[0]
+                biases = decoder_variables[1]
 
-            inference_decoder_initial_state = \
-                inference_cell.zero_state(
-                        dtype=tf.float32,
-                        batch_size=self.batch_size * beam_width)
+                tf.summary.histogram("decoder_cell_weights", weights)
+                tf.summary.histogram("decoder_cell_biases", biases)
 
-            inference_decoder_initial_state = \
-                inference_decoder_initial_state.clone(
-                    cell_state=tiled_encoder_final_state)
+            ## Inference
+            else:
+                start_tokens = tf.fill([self.batch_size],
+                    0)
+                end_token = 0
+                
+                # TODO beam search
 
-            # TODO potential bug, start token may have to be 
-            # different from end tokens
-            start_tokens = tf.fill([self.batch_size], 0)
-            end_token = 0
+                # greedy decode
+                helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
+                    self.embeddings, 
+                    start_tokens,
+                    end_token)
 
-            inference_decoder = \
-                tf.contrib.seq2seq.BeamSearchDecoder(
-                    cell = inference_cell,
-                    embedding = self.id2word,
-                    start_tokens = start_tokens,
-                    end_token = end_token,
-                    initial_state = inference_decoder_initial_state,
-                    beam_width = beam_width,
-                    output_layer = projection_layer
-                    )
+                decoder = tf.contrib.seq2seq.BasicDecoder(
+                    cell,
+                    helper,
+                    decoder_initial_state,
+                    output_layer=projection_layer)
 
-            # setup inference decoding
-            logging.debug("\n\n\n")
-            logging.debug("encoded_personas: " + str(self.encoded_personas))
-            logging.debug("encoder_final_state: " + str(self.encoder_final_state))
-            logging.debug("\n\n\n")
+                outputs, decoder_final_state, _ = \
+                    tf.contrib.seq2seq.dynamic_decode(
+                        decoder,
+                        maximum_iterations = 100,
+                        output_time_major=False,
+                        swap_memory=True)
 
-            self.inference_outputs, _, self.inference_output_len = \
-                tf.contrib.seq2seq.dynamic_decode(
-                    decoder = inference_decoder,
-                    output_time_major=False)
+                self.logits = outputs.rnn_output
+                sample_id = outputs.sample_id
 
-            sys.exit()
-
-
-            # summary histogram for decoder cell
-            # TODO figure out whatever the heck the third value of variables
-            # is
-            weights, biases, _ = decoder_cell.variables
-            tf.summary.histogram("decoder_cell_weights", weights)
-            tf.summary.histogram("decoder_cell_biases", biases)
 
             # summary histogram for projection layer
             with tf.variable_scope("projection_layer", reuse=True):
@@ -232,6 +213,8 @@ class ProfileMemoryBot(Chatbot):
                 bias = tf.get_variable("bias")
                 tf.summary.histogram("projection_layer_weights", weights)
                 tf.summary.histogram("projection_layer_bias", bias)
+
+
     
     def setup_profile_memory(self):
         # encode each persona with a bidirectional lstm
@@ -349,23 +332,29 @@ class ProfileMemoryBot(Chatbot):
         
         # (?, max persona sentences, max sentence len) int32
         self.persona_sentences = tf.placeholder(dtype=tf.int32, 
-            shape=(None, self.max_persona_sentences, 
-                self.max_sentence_len))
+            shape=(self.batch_size, self.max_persona_sentences, 
+                self.max_sentence_len),
+            name="persona_sentences")
         # (?, max conversation len * max sentence len) int32
         self.context_sentences = tf.placeholder(dtype=tf.int32,
-            shape=(None, 
-                self.max_conversation_len * self.max_sentence_len))
+            shape=(self.batch_size, 
+                self.max_conversation_len * self.max_sentence_len),
+            name="context_sentences")
         # (?, max sentence len) int32
         self.response = tf.placeholder(tf.int32, 
-                shape=(None, self.max_sentence_len))
+                shape=(self.batch_size, self.max_sentence_len),
+                name="response")
 
         # input lengths
         self.persona_sentence_lens = tf.placeholder(dtype=tf.int32,
-            shape=(None, self.max_persona_sentences))
+            shape=(self.batch_size, self.max_persona_sentences),
+            name="persona_sentence_lens")
         self.context_sentence_lens = tf.placeholder(dtype=tf.int32,
-            shape=(None))
+            shape=(self.batch_size),
+            name="context_sentence_lens")
         self.response_sentence_len = tf.placeholder(dtype=tf.int32,
-            shape=(None))
+            shape=(self.batch_size),
+            name="response_sentence_len")
         
     
     def train(self, training_data, test_data):

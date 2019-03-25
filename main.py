@@ -53,7 +53,7 @@ tf.app.flags.DEFINE_integer('batch_size',
 
 # training flags
 tf.app.flags.DEFINE_boolean('save_summary',
-        True, 'controls whether summaries are saved during training.')
+        False, 'controls whether summaries are saved during training.')
 tf.app.flags.DEFINE_integer('save_frequency',
         100, 'number of epochs between summary saves')
 tf.app.flags.DEFINE_boolean('print_training',
@@ -63,9 +63,9 @@ tf.app.flags.DEFINE_integer('print_dot_interval',
 tf.app.flags.DEFINE_integer('dots_per_line',
         45, 'number of dots printed between newlines')
 tf.app.flags.DEFINE_integer('model_save_interval',
-        10000, 'number of epochs between model saves')
+        1000, 'number of epochs between model saves')
 tf.app.flags.DEFINE_boolean('save_model',
-        False, 'whether to save the model or not')
+        True, 'whether to save the model or not')
 tf.app.flags.DEFINE_string('model_save_filepath',
         './train/model_save/model.ckpt', 'where to save the model')
 tf.app.flags.DEFINE_boolean('load_model',
@@ -76,10 +76,11 @@ tf.app.flags.DEFINE_boolean('load_model',
 tf.app.flags.DEFINE_boolean('debug', 
         False, 'run in debug mode?')
 tf.app.flags.DEFINE_boolean('run_inference',
-        True, 'run inference instead of training?')
+        False, 'run inference instead of training?')
 
 
 # runtime "flags"
+# computed at runtime
 tf.app.flags.DEFINE_integer('max_sentence_len', 0, 
         'the maximum length of any sentence in the dataset. calculated \
         at runtime')
@@ -127,6 +128,7 @@ def main(_):
     dataset = convert_to_id(dataset, word2id)
 
     # split into train and test
+    # TODO shuffle dataset before split
     print('splitting dataset')
     #train_size = int(len(dataset) * 0.9)
     train_size = len(dataset)
@@ -164,6 +166,7 @@ def main(_):
 
 
     # perform parameter search
+    # TODO add flag for parameter search
     """
     parameter_ranges = {}
     parameter_ranges["learning_rate"] = (-12, -2)
