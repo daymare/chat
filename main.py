@@ -11,13 +11,12 @@ from util.load_util import load_word_embeddings, load_dataset
 from util.data_util import get_data_info, convert_to_id
 from inference.run_chat import run_inference
 
-from models.seq2seq import Seq2SeqBot
-from models.memory_net import ProfileMemoryBot
+from models.model import Model
 
 from tools.parameter_search import perform_parameter_search
 
 
-FLAGS = tf.app.flags.FLAGS
+config = tf.app.flags.FLAGS
 
 
 # TODO default flag for metadata filepath
@@ -40,13 +39,13 @@ tf.app.flags.DEFINE_string('embedding_fname',
 # model flags
 # TODO split this into multiple parameters as necessary
 # shouldn't have one size for everything
-tf.app.flags.DEFINE_integer('hidden_size', 
+tf.app.flags.DEFINE_integer('num_units', 
         963, 'size of the hidden layers')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
 tf.app.flags.DEFINE_float('learning_rate',
         0.000128, 'learning rate during training')
-tf.app.flags.DEFINE_integer('num_epochs',
+tf.app.flags.DEFINE_integer('train_steps',
         1000000, 'number of training steps to train for')
 tf.app.flags.DEFINE_integer('batch_size',
         32, 'batch size')
@@ -66,8 +65,8 @@ tf.app.flags.DEFINE_integer('model_save_interval',
         1000, 'number of epochs between model saves')
 tf.app.flags.DEFINE_boolean('save_model',
         True, 'whether to save the model or not')
-tf.app.flags.DEFINE_string('model_save_filepath',
-        './train/model_save/model.ckpt', 'where to save the model')
+tf.app.flags.DEFINE_string('checkpoint_dir',
+        './train/model_save/', 'where to save the model')
 tf.app.flags.DEFINE_boolean('load_model',
         False, 
         'whether to load the model from file or not for training.')
@@ -90,6 +89,9 @@ tf.app.flags.DEFINE_integer('max_conversation_len', 0,
 tf.app.flags.DEFINE_integer('max_persona_len', 0, 
         'the maximum length of any persona in the dataset. calculated \
         at runtime')
+tf.app.flags.DEFINE_integer('vocab_size', 0,
+        'the number of words in our vocabulary. calculated \
+            at runtime')
 
 # logging
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -97,29 +99,32 @@ logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+tf.enable_eager_execution()
+
 
 def main(_):
     # load training data
     print('loading training data')
-    dataset = load_dataset(FLAGS.dataset_file, FLAGS.pickle_filepath,
-            FLAGS.load_dataset)
+    dataset = load_dataset(config.dataset_file, config.pickle_filepath,
+            config.load_dataset)
     logging.debug('dataset size: %i' % len(dataset))
 
     # load metadata
     print('loading metadata')
     word2id, id2word, max_sentence_len, max_conversation_len, \
             max_persona_len = get_data_info(dataset)
-    FLAGS.max_sentence_len = max_sentence_len
-    FLAGS.max_conversation_len = max_conversation_len
-    FLAGS.max_persona_len = max_persona_len
+    config.max_sentence_len = max_sentence_len
+    config.max_conversation_len = max_conversation_len
+    config.max_persona_len = max_persona_len
+    config.vocab_size = len(word2id)
     logging.debug('max sentence len: %i' % max_sentence_len)
     logging.debug('word2id size: %i' % len(word2id))
     logging.debug('id2word shape: %s' % str(id2word.shape))
 
     # load word vectors
     print('loading word vectors')
-    word2vec = load_word_embeddings(FLAGS.embedding_fname,
-            FLAGS.embedding_dim, word2id)
+    word2vec = load_word_embeddings(config.embedding_fname,
+            config.embedding_dim, word2id)
     logging.debug('word2vec type: %s' % type(word2vec))
     logging.debug('word2vec shape: %s' % str(word2vec.shape))
 
@@ -137,32 +142,32 @@ def main(_):
     # test is remainder after training
     test_data = dataset[train_size:] 
 
-    sess = tf.Session()
-
     # setup debugger
-    if FLAGS.debug == True:
+    if config.debug == True:
         sess = tf_debug.TensorBoardDebugWrapperSession(
                 sess, 'localhost:6064')
 
 
     # TODO add flags and control flow for parameter search
     logging.debug('building model')
-    #model = Seq2SeqBot(FLAGS, sess, word2vec, id2word)
-    model = ProfileMemoryBot(FLAGS, sess, word2vec, id2word)
+    #model = Seq2SeqBot(config, sess, word2vec, id2word)
+    #model = ProfileMemoryBot(config, sess, word2vec, id2word)
+
+    model = Model(config, word2vec, id2word, word2id)
 
     # load model
     # TODO add check to ensure the file exists
-    if FLAGS.load_model == True or FLAGS.run_inference == True:
+    if config.load_model == True or config.run_inference == True:
         print("loading model")
-        model.load_model()
+        model.load(config.model_save_filepath)
 
     # run inference
-    if FLAGS.run_inference == True:
+    if config.run_inference == True:
         run_inference(model, dataset, word2id)
     else:
         # train model
         logging.debug('training model')
-        model.train(train_data, test_data)
+        model.train(train_data, test_data, config.train_steps)
 
 
     # perform parameter search
@@ -172,7 +177,7 @@ def main(_):
     parameter_ranges["learning_rate"] = (-12, -2)
     parameter_ranges["hidden_size"] = (100, 100000)
 
-    perform_parameter_search(ProfileMemoryBot, sess, FLAGS,
+    perform_parameter_search(ProfileMemoryBot, sess, config,
             word2vec, id2word, parameter_ranges,
             train_data)
     """

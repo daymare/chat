@@ -1,24 +1,51 @@
 
-import tensorflow as tf
 
+import os
+import time
+import sys
+import logging
+
+import tensorflow as tf
 import numpy as np
+
+from util.data_util import get_training_batch_full
 
 
 def lstm(units):
-    return tf.keras.layers.cuDNNLSTM(units)
+    return tf.keras.layers.CuDNNLSTM(units,
+            return_sequences=True,
+            return_state=True,
+            recurrent_initializer='orthogonal')
+
+def gru(units):
+    if tf.test.is_gpu_available():
+        return tf.keras.layers.CuDNNGRU(
+                units,
+                return_sequences=True,
+                return_state=True,
+                recurrent_initializer='glorot_uniform')
+    else:
+        return tf.keras.layers.GRU(
+                units,
+                return_sequences=True,
+                return_state=True,
+                recurrent_activation='sigmoid',
+                recurrent_initializer='glorot_uniform')
 
 class Encoder(tf.keras.Model):
     def __init__(self, vocab_size, embedding_dim, enc_units,
             batch_size):
+        super(Encoder, self).__init__()
+
         self.batch_size = batch_size
         self.enc_units = enc_units
         self.embedding = tf.keras.layers.Embedding(vocab_size,
                 embedding_dim)
-        self.lstm = lstm(self.enc_units)
+        self.gru = gru(self.enc_units)
 
     def call(self, x, hidden):
         x = self.embedding(x)
-        output, state = self.lstm(x, initial_state=hidden)
+        output, state = self.gru(x, initial_state=hidden)
         return output, state
 
     def initialize_hidden_state(self):
@@ -33,7 +60,7 @@ class Decoder(tf.keras.Model):
         self.dec_units = dec_units
         self.embedding = tf.keras.layers.Embedding(
                 vocab_size, embedding_dim)
-        self.lstm = lstm(self.dec_units)
+        self.gru = gru(self.dec_units)
         self.projection_layer = tf.keras.layers.Dense(vocab_size)
 
         # used for attention
@@ -52,8 +79,15 @@ class Decoder(tf.keras.Model):
         # score shape == (batch_size, max_length, 1)
         # we get 1 at the last axis because we are applying
         # tanh(FC(EO) + FC(H))
+        logging.debug("enc_output: {}".format(enc_output.shape))
+        logging.debug("hidden_with_time_axis: {}".format(hidden_with_time_axis.shape))
+        logging.debug("W1: {}".format(self.W1.compute_output_shape(enc_output.shape)))
+        logging.debug("W2: {}".format(self.W2.compute_output_shape(hidden_with_time_axis.shape)))
+        #logging.debug("enc_output: {}".format(enc_output.shape))
+        #logging.debug("enc_output: {}".format(enc_output.shape))
         score = self.V(tf.nn.tanh(self.W1(enc_output) + \
                 self.W2(hidden_with_time_axis)))
+        logging.debug("score: {}".format(score.shape))
 
         # attention_weights shape == (batch_size, max_length, 1)
         attention_weights = tf.nn.softmax(score, axis=1)
@@ -72,7 +106,7 @@ class Decoder(tf.keras.Model):
                 axis=-1)
 
         # passing the concatenated vector to the LSTM
-        output, state = self.lstm(x)
+        output, state = self.gru(x)
 
         # output shape: (batch_size, hidden_size)
         output = tf.reshape(output, (-1, output.shape[2]))
@@ -87,94 +121,113 @@ class Decoder(tf.keras.Model):
 
 
 class Model(object):
-    def __init__(self, config):
-        vocab_inp_size = config.vocab_size
-        embedding_dim = config.embedding_dim
-        units = config.num_units
-        batch_size = config.batch_size
-
-        self.encoder = Encoder(vocab_inp_size, embedding_dim,
-                units, batch_size)
-        self.decoder = Decoder(vocab_tar_size, embedding_dim,
-                units, batch_size)
+    def __init__(self, config, word2vec, id2word, word2id):
+        self.load_config(config, word2vec, id2word, word2id)
+        
+        self.encoder = Encoder(
+                self.config.vocab_size, 
+                self.config.embedding_dim,
+                self.config.num_units, 
+                self.config.batch_size)
+        self.decoder = Decoder(
+                self.config.vocab_size, 
+                self.config.embedding_dim,
+                self.config.num_units, 
+                self.config.batch_size)
 
         # optimizer and loss function
         optimizer = tf.train.AdamOptimizer()
-
-        def loss_function(real, pred):
-            mask = 1 - np.equal(real, 0)
-            loss_ = tf.nn.sparse_softramx_cross_entropy_with_logits(
-                    labels=real, logits=pred) * mask
-            return tf.reduce_mean(loss_)
 
         # checkpoints
         checkpoint_dir = config.checkpoint_dir
         checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
         self.checkpoint = tf.train.Checkpoint(optimizer=optimizer,
-                encoder=encoder,
-                decoder=decoder)
+                encoder=self.encoder,
+                decoder=self.decoder)
 
-    def load_config(self, config):
-        pass
+    def loss_function(self, real, pred):
+        mask = 1 - np.equal(real, 0)
+        loss_ = tf.nn.sparse_softmax_cross_entropy_with_logits(
+                labels=real, logits=pred) * mask
+        return tf.reduce_mean(loss_)
+
+    def load_config(self, config, word2vec, id2word, word2id):
+        self.config = config
+
+        self.word2vec = word2vec
+        self.id2word = id2word
+        self.word2id = word2id
+
 
     def load(self, checkpoint_dir):
         """ load the model from a save file """
         self.checkpoint.restore(
                 tf.train.latest_checkpoint(checkpoint_dir))
 
-    def train(self, dataset, num_epochs):
+    def train(self, train_data, test_data, num_epochs):
+        # TODO fix training
         for epoch in range(num_epochs):
             start = time.time()
 
-            hidden = encoder.initialize_hidden_state()
-            total_loss = 0
+            hidden = self.encoder.initialize_hidden_state()
+            loss = 0
+
+            # get training batch
+            logging.debug("max sentence len: {}".format(self.config.max_sentence_len))
+            logging.debug("max conversation len: {}".format(self.config.max_conversation_len))
+            logging.debug("max multiplied len: {}".format(self.config.max_sentence_len * self.config.max_conversation_len))
+            personas, sentences, responses, persona_lens, \
+                    sentence_lens, response_lens = \
+                    get_training_batch_full(
+                        train_data, self.config.batch_size,
+                        self.config.max_sentence_len,
+                        self.config.max_conversation_len,
+                        self.config.max_persona_len)
             
-            for (batch, (inp, targ)) in enumerate(dataset):
-                loss = 0
+            with tf.GradientTape() as tape:
+                enc_output, enc_hidden = self.encoder(sentences, hidden)
+                dec_hidden = enc_hidden
+                logging.debug("dec hidden: {}".format(dec_hidden.shape))
 
-                with tf.GradientTape() as tape:
-                    enc_output, enc_hidden = encoder(inp, hidden)
-                    dec_hidden = enc_hidden
+                dec_input = tf.expand_dims([self.word2id[
+                    '<pad>']] * self.config.batch_size, 1)
 
-                    # Teacher forcing - feed the target as the next input
-                    for t in range(1, targ.shape[1]):
-                        # passing enc_output to the decoder
-                        predictions, dec_hidden, _ = decoder(
-                                dec_input,
-                                dec_hidden,
-                                enc_output)
+                # Teacher forcing - feed the target as the next input
+                for t in range(1, len(responses[0])):
+                    logging.debug("output number: {}".format(t))
+                    # passing enc_output to the decoder
+                    predictions, dec_hidden, _ = self.decoder(
+                            dec_input,
+                            dec_hidden,
+                            enc_output)
 
-                        loss += loss_function(targ[:, t], predictions)
+                    loss += self.loss_function(responses[:, t], predictions)
 
-                        # using teacher forcing
-                        dec_input = tf.expand_dims(targ[:, t], 1)
+                    # using teacher forcing
+                    dec_input = tf.expand_dims(responses[:, t], 1)
 
-                batch_loss = (loss / int(targ.shape[1]))
-                total_loss += batch_loss
-                variables = encoder.variables + decoder.variables
-                gradients = tape.gradient(loss, variables)
+                    tf.set_random_seed(1)
 
-                self.optimizer.apply_gradients(zip(gradients, variables))
 
-                if batch % 100 == 0:
-                    print('Epoch {} Batch {} Loss: {:.4f}'.format(
-                        epoch + 1,
-                        batch,
-                        batch_loss.numpy()))
+            batch_loss = (loss / len(responses[0]))
+            variables = encoder.variables + decoder.variables
+            gradients = tape.gradient(loss, variables)
 
-            # save the model every 2 epochs
-            if (epoch + 1) % 2 == 0:
+            self.optimizer.apply_gradients(zip(gradients, variables))
+
+            if batch % 100 == 0:
+                print('Epoch {} Batch {} Loss: {:.4f}'.format(
+                    epoch + 1,
+                    batch,
+                    batch_loss.numpy()))
+
+            # save the model every x batches
+            # TODO make this use the parameter
+            if (epoch + 1) % 10000 == 0:
                 checkpoint.save(file_prefix = checkpoint_prefix)
-            
-            print('Epoch {} Loss {:.4f}'.format(epoch + 1,
-                total_loss / N_BATCH))
 
             print('Time taken for 1 epoch {} sec\n'.format(
-                time.time() - start)
-
-
-
-
+                time.time() - start))
 
     def call(self, inputs):
         pass
