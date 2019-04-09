@@ -63,42 +63,11 @@ class Decoder(tf.keras.Model):
         self.gru = gru(self.dec_units)
         self.projection_layer = tf.keras.layers.Dense(vocab_size)
 
-        # used for attention
-        self.W1 = tf.keras.layers.Dense(self.dec_units)
-        self.W2 = tf.keras.layers.Dense(self.dec_units)
-        self.V = tf.keras.layers.Dense(1)
-
-    def call(self, x, hidden, enc_output):
-        # enc_output shape == (batch_size, max_length, hidden_size)
-
-        # hidden shape == (batch_size, hidden_size)
-        # hidden_with_time_axis shape == (batch_size, 1, hidden_size)
-        # used for performing addition to calculate the score
-        hidden_with_time_axis = tf.expand_dims(hidden, 1)
-
-        # score shape == (batch_size, max_length, 1)
-        # we get 1 at the last axis because we are applying
-        # tanh(FC(EO) + FC(H))
-        score = self.V(tf.nn.tanh(self.W1(enc_output) + \
-                self.W2(hidden_with_time_axis)))
-
-        # attention_weights shape == (batch_size, max_length, 1)
-        attention_weights = tf.nn.softmax(score, axis=1)
-
-        # context vector shape after sum == (batch_size, hidden_size)
-        context_vector = attention_weights * enc_output
-        context_vector = tf.reduce_sum(context_vector, axis=1)
-
+    def call(self, x, hidden):
         # x shape after passing through embedding: 
         # (batch_szie, 1, embedding_dim)
         x = self.embedding(x)
 
-        # x shape after concatenation: 
-        # (batch_size, 1, embedding_dim + hidden_size)
-        x = tf.concat([tf.expand_dims(context_vector, 1), x],
-                axis=-1)
-
-        # passing the concatenated vector to the LSTM
         output, state = self.gru(x)
 
         # output shape: (batch_size, hidden_size)
@@ -107,7 +76,7 @@ class Decoder(tf.keras.Model):
         # output shape: (batch_size, vocab)
         x = self.projection_layer(output)
 
-        return x, state, attention_weights
+        return x, state
 
     def initialize_hidden_state(self):
         return tf.zeros((self.batch_size, self.dec_units))
@@ -188,10 +157,9 @@ class Model(object):
                     logging.debug("output number: {}".format(t))
                     logging.debug("memory usage in GB: {}".format(tf.contrib.memory_stats.BytesInUse() / 1000000000))
                     # passing enc_output to the decoder
-                    predictions, dec_hidden, _ = self.decoder(
+                    predictions, dec_hidden = self.decoder(
                             dec_input,
-                            dec_hidden,
-                            enc_output)
+                            dec_hidden)
 
                     loss += self.loss_function(responses[:, t], predictions)
 

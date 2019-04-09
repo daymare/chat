@@ -48,7 +48,7 @@ tf.app.flags.DEFINE_float('learning_rate',
 tf.app.flags.DEFINE_integer('train_steps',
         1000000, 'number of training steps to train for')
 tf.app.flags.DEFINE_integer('batch_size',
-        16, 'batch size')
+        64, 'batch size')
 
 # training flags
 tf.app.flags.DEFINE_boolean('save_summary',
