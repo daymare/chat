@@ -98,7 +98,7 @@ class Model(object):
                 self.config.batch_size)
 
         # optimizer and loss function
-        optimizer = tf.train.AdamOptimizer()
+        self.optimizer = optimizer = tf.train.AdamOptimizer()
 
         # checkpoints
         checkpoint_dir = config.checkpoint_dir
@@ -147,15 +147,12 @@ class Model(object):
             with tf.GradientTape() as tape:
                 enc_output, enc_hidden = self.encoder(sentences, hidden)
                 dec_hidden = enc_hidden
-                logging.debug("dec hidden: {}".format(dec_hidden.shape))
 
                 dec_input = tf.expand_dims([self.word2id[
                     '<pad>']] * self.config.batch_size, 1)
 
                 # Teacher forcing - feed the target as the next input
                 for t in range(1, len(responses[0])):
-                    logging.debug("output number: {}".format(t))
-                    logging.debug("memory usage in GB: {}".format(tf.contrib.memory_stats.BytesInUse() / 1000000000))
                     # passing enc_output to the decoder
                     predictions, dec_hidden = self.decoder(
                             dec_input,
@@ -168,23 +165,23 @@ class Model(object):
 
 
             batch_loss = (loss / len(responses[0]))
-            variables = encoder.variables + decoder.variables
+            variables = self.encoder.variables + self.decoder.variables
             gradients = tape.gradient(loss, variables)
 
             self.optimizer.apply_gradients(zip(gradients, variables))
 
-            if batch % 100 == 0:
-                print('Epoch {} Batch {} Loss: {:.4f}'.format(
+            # TODO make this use the parameters
+            if epoch % 10 == 0:
+                logging.debug('Epoch {} Loss: {:.4f}'.format(
                     epoch + 1,
-                    batch,
                     batch_loss.numpy()))
 
             # save the model every x batches
             # TODO make this use the parameter
             if (epoch + 1) % 10000 == 0:
-                checkpoint.save(file_prefix = checkpoint_prefix)
+                self.checkpoint.save(file_prefix = checkpoint_prefix)
 
-            print('Time taken for 1 epoch {} sec\n'.format(
+            logging.debug('Time taken for 1 epoch {} sec\n'.format(
                 time.time() - start))
 
     def call(self, inputs):
