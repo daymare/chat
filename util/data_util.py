@@ -102,13 +102,14 @@ def get_personas(dataset, max_sentence_len, max_conversation_len, max_persona_se
 
 
 def get_full_sample(dataset, max_sentence_len, max_conversation_len,
-        max_persona_sentences):
+        max_conversation_words, max_persona_sentences):
     """ get a full sample from the dataset at random
 
     input:
         dataset to sample from
         max sentence len to normalize to
         max conversation len to normalize to
+        max number of words in a conversation to normalize to
         max persona sentences to normalize to
     output:
         persona - List[nparray[word]] - list of persona sentences
@@ -177,7 +178,7 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
     persona = np.array(persona, dtype=np.int32)
 
     conversation = sentence_to_np(conversation, 
-            max_sentence_len * max_conversation_len)
+            max_conversation_words)
     response = sentence_to_np(response, max_sentence_len)
 
     return persona, conversation, response, persona_lens, \
@@ -186,7 +187,8 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
 
 
 def get_training_batch_full(dataset, batch_size, max_sentence_len,
-        max_conversation_len, max_persona_sentences):
+        max_conversation_len, max_conversation_words, 
+        max_persona_sentences):
     """ build a batch of training data. 
 
     get batch size worth of conversations with responses and personas
@@ -219,7 +221,10 @@ def get_training_batch_full(dataset, batch_size, max_sentence_len,
     for i in range(batch_size):
         persona, conversation, response, persona_sentence_lens, \
                 conversation_len, response_len = \
-                get_full_sample(dataset, max_sentence_len, max_conversation_len,
+                get_full_sample(dataset, 
+                        max_sentence_len, 
+                        max_conversation_len,
+                        max_conversation_words,
                         max_persona_sentences)
 
         personas.append(persona)
@@ -338,6 +343,7 @@ def get_data_info(data, save_fname='./data/data_info.txt',
 
     max_sentence_len = 0
     max_conversation_len = 0
+    max_conversation_words = 0
     max_persona_len = 0
     word2id = {}
     id2word = []
@@ -381,9 +387,13 @@ def get_data_info(data, save_fname='./data/data_info.txt',
         # get metadata from chat
         conversation_len = 2 * len(chat.chat)
         max_conversation_len = max(conversation_len, max_conversation_len)
+        conversation_words = 0
+
         for partner_sentence, your_sentence in chat.chat:
             partner_len = len(partner_sentence)
             your_len = len(your_sentence)
+
+            conversation_words += partner_len + your_len
 
             max_sentence_len = max(partner_len,  max_sentence_len)
             max_sentence_len = max(your_len,  max_sentence_len)
@@ -393,7 +403,10 @@ def get_data_info(data, save_fname='./data/data_info.txt',
                 if word not in word2id and ' ' not in word:
                     add_word(word)
 
+        max_conversation_words = max(max_conversation_words,
+                conversation_words)
+
     # TODO save to savefile
     id2word = np.array(id2word)
     return word2id, id2word, max_sentence_len, max_conversation_len, \
-            max_persona_len
+            max_conversation_words, max_persona_len

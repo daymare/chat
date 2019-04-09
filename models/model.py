@@ -79,15 +79,8 @@ class Decoder(tf.keras.Model):
         # score shape == (batch_size, max_length, 1)
         # we get 1 at the last axis because we are applying
         # tanh(FC(EO) + FC(H))
-        logging.debug("enc_output: {}".format(enc_output.shape))
-        logging.debug("hidden_with_time_axis: {}".format(hidden_with_time_axis.shape))
-        logging.debug("W1: {}".format(self.W1.compute_output_shape(enc_output.shape)))
-        logging.debug("W2: {}".format(self.W2.compute_output_shape(hidden_with_time_axis.shape)))
-        #logging.debug("enc_output: {}".format(enc_output.shape))
-        #logging.debug("enc_output: {}".format(enc_output.shape))
         score = self.V(tf.nn.tanh(self.W1(enc_output) + \
                 self.W2(hidden_with_time_axis)))
-        logging.debug("score: {}".format(score.shape))
 
         # attention_weights shape == (batch_size, max_length, 1)
         attention_weights = tf.nn.softmax(score, axis=1)
@@ -173,15 +166,13 @@ class Model(object):
             loss = 0
 
             # get training batch
-            logging.debug("max sentence len: {}".format(self.config.max_sentence_len))
-            logging.debug("max conversation len: {}".format(self.config.max_conversation_len))
-            logging.debug("max multiplied len: {}".format(self.config.max_sentence_len * self.config.max_conversation_len))
             personas, sentences, responses, persona_lens, \
                     sentence_lens, response_lens = \
                     get_training_batch_full(
                         train_data, self.config.batch_size,
                         self.config.max_sentence_len,
                         self.config.max_conversation_len,
+                        self.config.max_conversation_words,
                         self.config.max_persona_len)
             
             with tf.GradientTape() as tape:
@@ -195,6 +186,7 @@ class Model(object):
                 # Teacher forcing - feed the target as the next input
                 for t in range(1, len(responses[0])):
                     logging.debug("output number: {}".format(t))
+                    logging.debug("memory usage in GB: {}".format(tf.contrib.memory_stats.BytesInUse() / 1000000000))
                     # passing enc_output to the decoder
                     predictions, dec_hidden, _ = self.decoder(
                             dec_input,
@@ -205,8 +197,6 @@ class Model(object):
 
                     # using teacher forcing
                     dec_input = tf.expand_dims(responses[:, t], 1)
-
-                    tf.set_random_seed(1)
 
 
             batch_loss = (loss / len(responses[0]))

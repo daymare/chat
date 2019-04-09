@@ -48,7 +48,7 @@ tf.app.flags.DEFINE_float('learning_rate',
 tf.app.flags.DEFINE_integer('train_steps',
         1000000, 'number of training steps to train for')
 tf.app.flags.DEFINE_integer('batch_size',
-        32, 'batch size')
+        16, 'batch size')
 
 # training flags
 tf.app.flags.DEFINE_boolean('save_summary',
@@ -86,6 +86,9 @@ tf.app.flags.DEFINE_integer('max_sentence_len', 0,
 tf.app.flags.DEFINE_integer('max_conversation_len', 0, 
         'the maximum length of any conversation in the dataset. calculated \
         at runtime')
+tf.app.flags.DEFINE_integer('max_conversation_words', 0, 
+        'the maximum number of words in any conversation in the dataset. calculated \
+        at runtime')
 tf.app.flags.DEFINE_integer('max_persona_len', 0, 
         'the maximum length of any persona in the dataset. calculated \
         at runtime')
@@ -112,12 +115,16 @@ def main(_):
     # load metadata
     print('loading metadata')
     word2id, id2word, max_sentence_len, max_conversation_len, \
-            max_persona_len = get_data_info(dataset)
+            max_conversation_words, max_persona_len = get_data_info(dataset)
+
     config.max_sentence_len = max_sentence_len
     config.max_conversation_len = max_conversation_len
+    config.max_conversation_words = max_conversation_words
     config.max_persona_len = max_persona_len
     config.vocab_size = len(word2id)
+
     logging.debug('max sentence len: %i' % max_sentence_len)
+    logging.debug("max conversation words: {}".format(max_conversation_words))
     logging.debug('word2id size: %i' % len(word2id))
     logging.debug('id2word shape: %s' % str(id2word.shape))
 
@@ -168,7 +175,6 @@ def main(_):
         # train model
         logging.debug('training model')
         model.train(train_data, test_data, config.train_steps)
-
 
     # perform parameter search
     # TODO add flag for parameter search
