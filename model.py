@@ -33,7 +33,6 @@ def gru(units):
                 recurrent_initializer='glorot_uniform')
 
 
-
 class PersonaEncoder(tf.keras.Model):
     def __init__(self, vocab_size, embedding_dim, enc_units,
             batch_size):
@@ -62,7 +61,12 @@ class PersonaEncoder(tf.keras.Model):
             hidden = self.initialize_hidden_state()
             persona = self.embedding(persona)
             output, _ = self.gru(persona, initial_state=hidden)
-            outputs.append(output)
+            last_output = output[:,-1,:]
+            outputs.append(last_output)
+
+        # reshape outputs to be what we expect
+        outputs = tf.convert_to_tensor(outputs)
+        outputs = tf.transpose(outputs, [1, 0, 2])
 
         return outputs
 
@@ -101,10 +105,37 @@ class Decoder(tf.keras.Model):
         self.gru = gru(self.dec_units)
         self.projection_layer = tf.keras.layers.Dense(vocab_size)
 
-    def call(self, x, hidden):
+        # attention stuff
+        self.W1 = tf.keras.layers.Dense(self.dec_units)
+        self.W2 = tf.keras.layers.Dense(self.dec_units)
+        self.V = tf.keras.layers.Dense(1)
+
+    def call(self, x, persona_embeddings, hidden):
+        # attention calculations
+        # persona embeddings shape: (batch_size, max_persona_sentences, hidden_size)
+
+        # hidden shape (batch size, hidden size)
+        # hidden with time axis shape (batch size, 1, hidden size)
+        hidden_with_time_axis = tf.expand_dims(hidden, 1)
+
+        # score shape (batch size, max persona sentences, 1)
+        W1_hidden = self.W1(hidden_with_time_axis)
+        W2_persona = self.W2(persona_embeddings)
+        score = self.V(W1_hidden + W2_persona)
+
+        # attention weights shape (batch size, max persona sentences, 1)
+        attention_weights = tf.nn.softmax(score, axis=1)
+
+        # context vector shape after sum (batch size, hidden size)
+        context_vector = attention_weights * persona_embeddings
+        context_vector = tf.reduce_sum(context_vector, axis=1)
+
         # x shape after passing through embedding: 
         # (batch_szie, 1, embedding_dim)
         x = self.embedding(x)
+
+        # x shape after concatenation (batch size, 1, embedding dim + hidden size)
+        x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
 
         output, state = self.gru(x)
 
@@ -204,6 +235,7 @@ class Model(object):
                     # passing enc_output to the decoder
                     predictions, dec_hidden = self.decoder(
                             dec_input,
+                            persona_embeddings,
                             dec_hidden)
 
                     loss += self.loss_function(responses[:, t], predictions)
@@ -219,7 +251,7 @@ class Model(object):
             self.optimizer.apply_gradients(zip(gradients, variables))
 
             # TODO make this use the parameters
-            if epoch % 10 == 0:
+            if epoch % 1 == 0:
                 logging.debug('Epoch {} Loss: {:.4f}'.format(
                     epoch + 1,
                     batch_loss.numpy()))
