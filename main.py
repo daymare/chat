@@ -11,7 +11,7 @@ from util.load_util import load_word_embeddings, load_dataset
 from util.data_util import get_data_info, convert_to_id
 from inference.run_chat import run_inference
 
-from models.model import Model
+from model import Model
 
 from tools.parameter_search import perform_parameter_search
 
