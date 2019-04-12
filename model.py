@@ -34,14 +34,12 @@ def gru(units):
 
 
 class PersonaEncoder(tf.keras.Model):
-    def __init__(self, vocab_size, embedding_dim, enc_units,
-            batch_size):
+    def __init__(self, enc_units, batch_size, embedding):
         super(PersonaEncoder, self).__init__()
 
         self.batch_size = batch_size
         self.enc_units = enc_units
-        self.embedding = tf.keras.layers.Embedding(vocab_size,
-                embedding_dim)
+        self.embedding = embedding
 
         self.gru = gru(self.enc_units)
 
@@ -73,16 +71,13 @@ class PersonaEncoder(tf.keras.Model):
     def initialize_hidden_state(self):
         return tf.zeros((self.batch_size, self.enc_units))
 
-
 class Encoder(tf.keras.Model):
-    def __init__(self, vocab_size, embedding_dim, enc_units,
-            batch_size):
+    def __init__(self, enc_units, batch_size, embedding):
         super(Encoder, self).__init__()
 
         self.batch_size = batch_size
         self.enc_units = enc_units
-        self.embedding = tf.keras.layers.Embedding(vocab_size,
-                embedding_dim)
+        self.embedding = embedding
         self.gru = gru(self.enc_units)
 
     def call(self, x, hidden):
@@ -94,14 +89,12 @@ class Encoder(tf.keras.Model):
         return tf.zeros((self.batch_size, self.enc_units))
 
 class Decoder(tf.keras.Model):
-    def __init__(self, vocab_size, embedding_dim,
-            dec_units, batch_size):
+    def __init__(self, dec_units, vocab_size, batch_size, embedding):
         super(Decoder, self).__init__()
         
         self.batch_size = batch_size
         self.dec_units = dec_units
-        self.embedding = tf.keras.layers.Embedding(
-                vocab_size, embedding_dim)
+        self.embedding = embedding
         self.gru = gru(self.dec_units)
         self.projection_layer = tf.keras.layers.Dense(vocab_size)
 
@@ -154,22 +147,26 @@ class Decoder(tf.keras.Model):
 class Model(object):
     def __init__(self, config, word2vec, id2word, word2id):
         self.load_config(config, word2vec, id2word, word2id)
+
+        embedding = tf.keras.layers.Embedding(
+                input_dim=self.config.vocab_size,
+                output_dim=self.config.embedding_dim,
+                weights=word2vec,
+                trainable=False)
         
         self.persona_encoder = PersonaEncoder(
-                self.config.vocab_size, 
-                self.config.embedding_dim,
                 self.config.num_units, 
-                self.config.batch_size)
+                self.config.batch_size,
+                embedding)
         self.encoder = Encoder(
-                self.config.vocab_size, 
-                self.config.embedding_dim,
                 self.config.num_units, 
-                self.config.batch_size)
+                self.config.batch_size,
+                embedding)
         self.decoder = Decoder(
-                self.config.vocab_size, 
-                self.config.embedding_dim,
                 self.config.num_units, 
-                self.config.batch_size)
+                self.config.vocab_size,
+                self.config.batch_size,
+                embedding)
 
         # optimizer and loss function
         self.optimizer = optimizer = tf.train.AdamOptimizer()
