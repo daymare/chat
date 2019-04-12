@@ -32,6 +32,44 @@ def gru(units):
                 recurrent_activation='sigmoid',
                 recurrent_initializer='glorot_uniform')
 
+
+
+class PersonaEncoder(tf.keras.Model):
+    def __init__(self, vocab_size, embedding_dim, enc_units,
+            batch_size):
+        super(PersonaEncoder, self).__init__()
+
+        self.batch_size = batch_size
+        self.enc_units = enc_units
+        self.embedding = tf.keras.layers.Embedding(vocab_size,
+                embedding_dim)
+
+        self.gru = gru(self.enc_units)
+
+    def call(self, personas):
+        """
+            personas - np array 
+                (batch_size, max_persona_sentences, max_sentence_len)
+            hidden - previous hidden vector
+        """
+
+        outputs = []
+
+        # reshape personas to fit the gru
+        personas = np.transpose(personas, (1, 0, 2))
+
+        for persona in personas:
+            hidden = self.initialize_hidden_state()
+            persona = self.embedding(persona)
+            output, _ = self.gru(persona, initial_state=hidden)
+            outputs.append(output)
+
+        return outputs
+
+    def initialize_hidden_state(self):
+        return tf.zeros((self.batch_size, self.enc_units))
+
+
 class Encoder(tf.keras.Model):
     def __init__(self, vocab_size, embedding_dim, enc_units,
             batch_size):
@@ -86,6 +124,11 @@ class Model(object):
     def __init__(self, config, word2vec, id2word, word2id):
         self.load_config(config, word2vec, id2word, word2id)
         
+        self.persona_encoder = PersonaEncoder(
+                self.config.vocab_size, 
+                self.config.embedding_dim,
+                self.config.num_units, 
+                self.config.batch_size)
         self.encoder = Encoder(
                 self.config.vocab_size, 
                 self.config.embedding_dim,
@@ -103,7 +146,9 @@ class Model(object):
         # checkpoints
         checkpoint_dir = config.checkpoint_dir
         checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
-        self.checkpoint = tf.train.Checkpoint(optimizer=optimizer,
+        self.checkpoint = tf.train.Checkpoint(
+                optimizer=optimizer,
+                persona_encoder=self.persona_encoder,
                 encoder=self.encoder,
                 decoder=self.decoder)
 
@@ -127,7 +172,6 @@ class Model(object):
                 tf.train.latest_checkpoint(checkpoint_dir))
 
     def train(self, train_data, test_data, num_epochs):
-        # TODO fix training
         for epoch in range(num_epochs):
             start = time.time()
 
@@ -148,8 +192,12 @@ class Model(object):
                 enc_output, enc_hidden = self.encoder(sentences, hidden)
                 dec_hidden = enc_hidden
 
+                persona_embeddings = self.persona_encoder(personas)
+
                 dec_input = tf.expand_dims([self.word2id[
                     '<pad>']] * self.config.batch_size, 1)
+
+                # TODO implement attention over persona embeddings
 
                 # Teacher forcing - feed the target as the next input
                 for t in range(1, len(responses[0])):
@@ -181,8 +229,10 @@ class Model(object):
             if (epoch + 1) % 10000 == 0:
                 self.checkpoint.save(file_prefix = checkpoint_prefix)
 
+            """
             logging.debug('Time taken for 1 epoch {} sec\n'.format(
                 time.time() - start))
+            """
 
     def call(self, inputs):
         pass
