@@ -200,10 +200,11 @@ class Model(object):
                 tf.train.latest_checkpoint(checkpoint_dir))
 
     def train(self, train_data, test_data, num_epochs):
+        global_step = tf.train.get_or_create_global_step()
+
         # tensorboard setup
         if self.config.save_summary == True:
             logdir = self.config.logdir
-            global_step = tf.train.get_or_create_global_step()
 
             summary_writer = tf.contrib.summary.create_file_writer(logdir)
             summary_writer.set_as_default()
