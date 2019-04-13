@@ -200,7 +200,18 @@ class Model(object):
                 tf.train.latest_checkpoint(checkpoint_dir))
 
     def train(self, train_data, test_data, num_epochs):
+        # tensorboard setup
+        if self.config.save_summary == True:
+            logdir = self.config.logdir
+            global_step = tf.train.get_or_create_global_step()
+
+            summary_writer = tf.contrib.summary.create_file_writer(logdir)
+            summary_writer.set_as_default()
+
+        # train loop
         for epoch in range(num_epochs):
+            global_step.assign_add(1)
+
             start = time.time()
 
             hidden = self.encoder.initialize_hidden_state()
@@ -247,6 +258,15 @@ class Model(object):
 
             self.optimizer.apply_gradients(zip(gradients, variables))
 
+            # record summaries
+            if self.config.save_summary == True:
+                with (tf.contrib.summary.
+                        record_summaries_every_n_global_steps(
+                            self.config.save_frequency)):
+                    tf.contrib.summary.scalar('loss', batch_loss)
+
+
+            # print out progress
             # TODO make this use the parameters
             if epoch % 1 == 0:
                 logging.debug('Epoch {} Loss: {:.4f}'.format(

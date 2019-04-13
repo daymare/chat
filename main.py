@@ -67,6 +67,8 @@ tf.app.flags.DEFINE_boolean('save_model',
         True, 'whether to save the model or not')
 tf.app.flags.DEFINE_string('checkpoint_dir',
         './train/model_save/', 'where to save the model')
+tf.app.flags.DEFINE_string('logdir',
+        './train/', 'where to save tensorboard summaries')
 tf.app.flags.DEFINE_boolean('load_model',
         False, 
         'whether to load the model from file or not for training.')
