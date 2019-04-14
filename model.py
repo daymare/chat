@@ -261,6 +261,8 @@ class Model(object):
 
             # record summaries
             if self.config.save_summary == True:
+                logging.debug("saving summary to: {}".format(
+                    self.config.logdir))
                 with (tf.contrib.summary.
                         record_summaries_every_n_global_steps(
                             self.config.save_frequency)):
@@ -268,16 +270,18 @@ class Model(object):
 
 
             # print out progress
-            # TODO make this use the parameters
             if epoch % 1 == 0:
                 logging.debug('Epoch {} Loss: {:.4f}'.format(
                     epoch + 1,
                     batch_loss.numpy()))
 
             # save the model every x batches
-            # TODO make this use the parameter
-            if (epoch + 1) % 10000 == 0:
-                self.checkpoint.save(file_prefix = checkpoint_prefix)
+            if ((epoch + 1) % self.config.model_save_interval == 0
+                    and self.config.save_model == True):
+                logging.debug('Saving model to: {}'.format(
+                    self.config.checkpoint_dir))
+                self.checkpoint.save(
+                    file_prefix = self.config.checkpoint_dir)
 
             """
             logging.debug('Time taken for 1 epoch {} sec\n'.format(

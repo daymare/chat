@@ -52,7 +52,7 @@ tf.app.flags.DEFINE_integer('batch_size',
 
 # training flags
 tf.app.flags.DEFINE_boolean('save_summary',
-        False, 'controls whether summaries are saved during training.')
+        True, 'controls whether summaries are saved during training.')
 tf.app.flags.DEFINE_integer('save_frequency',
         100, 'number of epochs between summary saves')
 tf.app.flags.DEFINE_boolean('print_training',
