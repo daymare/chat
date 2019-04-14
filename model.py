@@ -199,7 +199,7 @@ class Model(object):
         self.checkpoint.restore(
                 tf.train.latest_checkpoint(checkpoint_dir))
 
-    def train(self, train_data, test_data, num_epochs):
+    def train(self, train_data, test_data, num_steps):
         global_step = tf.train.get_or_create_global_step()
 
         # tensorboard setup
@@ -210,7 +210,7 @@ class Model(object):
             summary_writer.set_as_default()
 
         # train loop
-        for epoch in range(num_epochs):
+        for step in range(num_steps):
             global_step.assign_add(1)
 
             start = time.time()
@@ -268,23 +268,20 @@ class Model(object):
 
 
             # print out progress
-            if epoch % 1 == 0:
-                logging.debug('Epoch {} Loss: {:.4f}'.format(
-                    epoch + 1,
-                    batch_loss.numpy()))
+            logging.debug('Batch {} Loss: {:.4f}'.format(
+                step + 1,
+                batch_loss.numpy()))
+            logging.debug('Time taken for 1 step {} sec'.format(
+                time.time() - start))
 
             # save the model every x batches
-            if ((epoch + 1) % self.config.model_save_interval == 0
+            if ((step + 1) % self.config.model_save_interval == 0
                     and self.config.save_model == True):
                 logging.debug('Saving model to: {}'.format(
                     self.config.checkpoint_dir))
                 self.checkpoint.save(
                     file_prefix = self.config.checkpoint_dir)
 
-            """
-            logging.debug('Time taken for 1 epoch {} sec\n'.format(
-                time.time() - start))
-            """
 
     def call(self, inputs):
         pass
