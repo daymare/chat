@@ -158,6 +158,7 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
 
     for word in exchange[0]:
         conversation.append(word)
+    conversation.append(0) # append "<pad>"
     conversation_len += len(exchange[0])
 
     response = exchange[1]
@@ -405,6 +406,9 @@ def get_data_info(data, save_fname='./data/data_info.txt',
 
         max_conversation_words = max(max_conversation_words,
                 conversation_words)
+
+    # account for <pads> that will be added
+    max_conversation_words += max_conversation_len
 
     # TODO save to savefile
     id2word = np.array(id2word)
