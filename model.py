@@ -261,8 +261,6 @@ class Model(object):
 
             # record summaries
             if self.config.save_summary == True:
-                logging.debug("saving summary to: {}".format(
-                    self.config.logdir))
                 with (tf.contrib.summary.
                         record_summaries_every_n_global_steps(
                             self.config.save_frequency)):
