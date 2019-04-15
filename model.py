@@ -239,8 +239,6 @@ class Model(object):
                 dec_input = tf.expand_dims([self.word2id[
                     '<pad>']] * self.config.batch_size, 1)
 
-                # TODO implement attention over persona embeddings
-
                 # Teacher forcing - feed the target as the next input
                 for t in range(1, len(responses[0])):
                     # passing enc_output to the decoder
