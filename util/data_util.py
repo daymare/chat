@@ -185,6 +185,34 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
     return persona, conversation, response, persona_lens, \
         conversation_len, response_len
 
+def get_eval_iterator(dataset, max_sentence_len):
+    """ return an iterator over samples in the eval set.
+
+    TODO finish writing method doc
+    TODO try batching to make eval faster
+
+    """
+    for chat in dataset:
+        # process persona
+        # TODO potential bug, might be bad to not pad persona sentences
+        persona = chat.your_persona
+
+        for i in range(len(persona)):
+            persona[i] = np.array(persona[i], dtype=np.int32)
+
+        # process chat
+        partner_sentences = []
+        agent_responses = []
+        for i in range(len(chat.chat)):
+            exchange = chat.chat[i]
+
+            partner_sentence = np.array(exchange[0], dtype=np.int32)
+            partner_sentences.append(partner_sentence)
+
+            agent_sentence = np.array(exchange[0], dtype=np.int32)
+            agent_responses.append(agent_sentence)
+
+        yield persona, partner_sentences, agent_responses
 
 
 def get_training_batch_full(dataset, batch_size, max_sentence_len,
