@@ -256,6 +256,8 @@ class Model(object):
             batch_loss = (loss / len(responses[0]))
             variables = self.encoder.variables + self.decoder.variables
             gradients = tape.gradient(loss, variables)
+            gradients, _ = tf.clip_by_global_norm(gradients,
+                    self.config.max_gradient_norm)
 
             self.optimizer.apply_gradients(zip(gradients, variables))
 
