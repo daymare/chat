@@ -229,6 +229,8 @@ class Model(object):
                         self.config.max_persona_len)
             
             with tf.GradientTape() as tape:
+                # TODO double check padding isn't screwing up the encoder training.
+                # May want to restructure how we are doing input
                 enc_output, enc_hidden = self.encoder(sentences, hidden)
                 dec_hidden = enc_hidden
 
