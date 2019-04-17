@@ -263,11 +263,21 @@ class Model(object):
 
             # record summaries
             if self.config.save_summary == True:
+                # record eval loss
+                # TODO make parameter for how often to run eval
+                if step % 10 == 0:
+                    with (tf.contrib.summary.
+                            always_record_summaries()):
+                        # run eval
+                        eval_loss = self.eval(test_data)
+
+                        # record eval performance
+                        tf.contrib.summary.scalar('loss', eval_loss)
+
                 with (tf.contrib.summary.
                         record_summaries_every_n_global_steps(
                             self.config.save_frequency)):
                     tf.contrib.summary.scalar('loss', batch_loss)
-
 
             # print out progress
             logging.debug('Batch {} Loss: {:.4f}'.format(
@@ -284,8 +294,71 @@ class Model(object):
                 self.checkpoint.save(
                     file_prefix = self.config.checkpoint_dir)
 
+    def eval(self, test_data):
+        """ get loss on eval set
+        """
+        total_loss = 0.0
+        num_samples = 0
 
-    def call(self, inputs):
+        for persona, partner_sentences, agent_responses in (
+                get_eval_iterator(test_data,
+                    self.config.max_sentence_len)):
+
+            # process persona information
+            persona = tf.expand_dims(persona, 0)
+            persona_embeddings = self.persona_encoder(persona)
+
+            # initialize encoder hidden state
+            enc_hidden = self.encoder.initialize_hidden_state()
+
+            # process each sentence in the conversation
+            for i in range(len(partner_sentences)):
+                num_samples += 1
+
+                # encode partner sentence
+                partner_sentence = partner_sentences[i]
+                partner_sentence.append(self.word2id['<pad>'])
+                _, enc_hidden = self.encoder(partner_sentence, enc_hidden)
+
+                # run decoder
+                dec_input = tf.expand_dims([self.word2id[
+                    '<pad>']], 0)
+
+                for t in range(len(responses[0])):
+                    predictions, dec_hidden = self.decoder(
+                            dec_input,
+                            persona_embeddings,
+                            dec_hidden)
+
+                    total_loss += self.loss_function(agent_responses[t], predictions)
+                    predicted_id = tf.argmax(predictions[0]).numpy()
+
+                    # check if decoder is done
+                    if self.id2word[predicted_id] == '<pad>':
+                        continue
+
+                    # feed predicted id back to decoder
+                    dec_input = tf.expand_dims([predicted_id], 0)
+
+                # encode dataset response
+                agent_sentence = agent_responses[i]
+                agent_sentence.append(self.word2id['<pad>'])
+                _, enc_hidden = self.encoder(agent_sentence, enc_hidden)
+
+            # return average eval loss over the whole set
+            return total_loss / num_samples
+
+    def call(self, inputs, reset=False):
+        """ perform inference on inputs
+        if reset=True then forget all past conversation.
+        Otherwise cache conversation for future reference.
+
+        inputs - conversation up to point of inference
+            or next sentence to respond to.
+            encoded as word ids
+
+        output - response encoded as word ids
+        """
         pass
 
 
