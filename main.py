@@ -1,5 +1,6 @@
 
 import logging
+import random
 import sys
 import os
 
@@ -52,7 +53,7 @@ tf.app.flags.DEFINE_integer('batch_size',
 
 # training flags
 tf.app.flags.DEFINE_boolean('save_summary',
-        True, 'controls whether summaries are saved during training.')
+        False, 'controls whether summaries are saved during training.')
 tf.app.flags.DEFINE_integer('save_frequency',
         100, 'number of epochs between summary saves')
 tf.app.flags.DEFINE_boolean('print_training',
@@ -64,7 +65,7 @@ tf.app.flags.DEFINE_integer('dots_per_line',
 tf.app.flags.DEFINE_integer('model_save_interval',
         1000, 'number of epochs between model saves')
 tf.app.flags.DEFINE_boolean('save_model',
-        True, 'whether to save the model or not')
+        False, 'whether to save the model or not')
 tf.app.flags.DEFINE_string('checkpoint_dir',
         './train/model_save/', 'where to save the model')
 tf.app.flags.DEFINE_string('logdir',
@@ -142,10 +143,10 @@ def main(_):
     dataset = convert_to_id(dataset, word2id)
 
     # split into train and test
-    # TODO shuffle dataset before split
+    # TODO make split ratio into a parameter
     print('splitting dataset')
-    #train_size = int(len(dataset) * 0.9)
-    train_size = len(dataset)
+    random.shuffle(dataset)
+    train_size = int(len(dataset) * 0.9)
 
     train_data = dataset[:train_size]
     # test is remainder after training
