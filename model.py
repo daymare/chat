@@ -288,11 +288,12 @@ class Model(object):
                     tf.contrib.summary.scalar('perplexity', batch_ppl)
 
             # print out progress
-            logging.debug('Batch {} Loss: {:.4f}'.format(
-                step + 1,
-                batch_loss.numpy()))
-            logging.debug('Time taken for 1 step {} sec'.format(
-                time.time() - start))
+            print('\n')
+            print('Batch {}'.format(step + 1))
+            print('Loss: {:.4f}'.format(batch_loss.numpy()))
+            print('Perplexity: {:.4f}'.format(batch_ppl.numpy()))
+            print('Time taken for 1 step {} sec'.format(
+                time.time() - start), flush=True)
 
             # save the model every x batches
             if ((step + 1) % self.config.model_save_interval == 0
