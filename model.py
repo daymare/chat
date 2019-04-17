@@ -184,7 +184,8 @@ class Model(object):
         mask = 1 - np.equal(real, 0)
         loss_ = tf.nn.sparse_softmax_cross_entropy_with_logits(
                 labels=real, logits=pred) * mask
-        return tf.reduce_mean(loss_)
+        perplexity = tf.exp(loss_)
+        return tf.reduce_mean(loss_), tf.reduce_mean(perplexity)
 
     def load_config(self, config, word2vec, id2word, word2id):
         self.config = config
@@ -216,7 +217,8 @@ class Model(object):
             start = time.time()
 
             hidden = self.encoder.initialize_hidden_state()
-            loss = 0
+            loss = 0.0
+            ppl = 0.0
 
             # get training batch
             personas, sentences, responses, persona_lens, \
@@ -247,13 +249,18 @@ class Model(object):
                             persona_embeddings,
                             dec_hidden)
 
-                    loss += self.loss_function(responses[:, t], predictions)
+                    sample_loss, sample_ppl = \
+                        self.loss_function(responses[:, t], predictions)
+
+                    loss += sample_loss
+                    ppl += sample_ppl
 
                     # using teacher forcing
                     dec_input = tf.expand_dims(responses[:, t], 1)
 
 
-            batch_loss = (loss / len(responses[0]))
+            batch_loss = (loss / self.config.batch_size)
+            batch_ppl = (ppl / self.config.batch_size)
             variables = self.encoder.variables + self.decoder.variables
             gradients = tape.gradient(loss, variables)
             gradients, _ = tf.clip_by_global_norm(gradients,
@@ -278,6 +285,7 @@ class Model(object):
                         record_summaries_every_n_global_steps(
                             self.config.save_frequency)):
                     tf.contrib.summary.scalar('loss', batch_loss)
+                    tf.contrib.summary.scalar('perplexity', batch_ppl)
 
             # print out progress
             logging.debug('Batch {} Loss: {:.4f}'.format(
