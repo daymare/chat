@@ -145,13 +145,13 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
         for word in exchange[0]:
             conversation.append(word)
         conversation.append(0) # append id for "<pad>"
-        conversation_len += len(exchange[0])
+        conversation_len += len(exchange[0]) + 1
 
         # agent sentence
         for word in exchange[1]:
             conversation.append(word)
         conversation.append(0) # append id for "<pad>"
-        conversation_len += len(exchange[1])
+        conversation_len += len(exchange[1]) + 1
 
     # load the response
     exchange = chat.chat[index]
@@ -159,7 +159,7 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
     for word in exchange[0]:
         conversation.append(word)
     conversation.append(0) # append "<pad>"
-    conversation_len += len(exchange[0])
+    conversation_len += len(exchange[0]) + 1
 
     response = exchange[1]
     response_len = len(exchange[1])
@@ -185,34 +185,104 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
     return persona, conversation, response, persona_lens, \
         conversation_len, response_len
 
-def get_eval_iterator(dataset, max_sentence_len):
-    """ return an iterator over samples in the eval set.
+def get_eval_batch_iterator(dataset, batch_size, max_sentence_len,
+        max_conversation_len, max_conversation_words,
+        max_persona_sentences):
+    """ get an iterator over consecutive batches in the eval set
 
-    TODO finish writing method doc
-    TODO try batching to make eval faster
+    note that we may miss up to batch_size-1 samples in the dataset
+    """
+    personas = []
+    sentences = []
+    responses = []
+    persona_lens = []
+    sentence_lens = []
+    response_lens = []
 
+    for sample in get_eval_iterator(dataset, max_sentence_len
+            max_conversation_len, max_conversation_words,
+            max_persona_sentences):
+        persona, conversation, response, persona_sentence_lens, \
+            conversation_len, response_len = sample
+
+        personas.append(persona)
+        sentences.append(conversation)
+        responses.append(response)
+        persona_lens.append(persona_sentence_lens)
+        sentence_lens.append(conversation_len)
+        response_lens.append(response_len)
+
+        if len(personas) == batch_size:
+            # convert everything to np arrays
+            personas = np.array(personas)
+            sentences = np.array(sentences)
+            responses = np.array(responses)
+            persona_lens = np.array(persona_lens)
+            sentence_lens = np.array(sentence_lens)
+            response_lens = np.array(response_lens)
+
+            yield personas, sentences, responses, \
+                    persona_lens, sentence_lens, response_lens
+
+def get_eval_iterator(dataset, max_sentence_len,
+        max_conversation_len, max_conversation_words,
+        max_persona_sentences):
+    """ get an iterator over consecutive samples in the eval set.
     """
     for chat in dataset:
-        # process persona
-        # TODO potential bug, might be bad to not pad persona sentences
+        # load up persona information
         persona = chat.your_persona
+        persona_lens = []
+        for persona_sentence in persona:
+            persona_lens.append(len(persona_sentence))
 
+        # convert persona to np arrays
         for i in range(len(persona)):
-            persona[i] = np.array(persona[i], dtype=np.int32)
+            sentence = persona[i]
+            new_sentence = sentence_to_np(sentence, max_sentence_len)
+            persona[i] = new_sentence
 
-        # process chat
-        partner_sentences = []
-        agent_responses = []
-        for i in range(len(chat.chat)):
+        # pad persona sentences
+        while len(persona) < max_persona_sentences:
+            pad_sentence = np.zeros(max_sentence_len, dtype=np.int32)
+            persona.append(pad_sentence)
+            persona_lens.append(0)
+        persona_lens = np.array(persona_lens, dtype=np.int32)
+        np_persona = np.array(persona, dtype=np.int32)
+    
+        # init the previous conversation
+        conversation = []
+        conversation_len = 0
+
+        for i in range(0, len(chat.chat)):
             exchange = chat.chat[i]
 
-            partner_sentence = np.array(exchange[0], dtype=np.int32)
-            partner_sentences.append(partner_sentence)
+            # add partner sentence to conversation
+            for word in exchange[0]:
+                conversation.append(word)
+            converstaion.append(0) # append id for "<pad>"
+            conversation_len += len(exchange[0]) + 1
 
-            agent_sentence = np.array(exchange[0], dtype=np.int32)
-            agent_responses.append(agent_sentence)
+            # convert conversation
+            np_conversation = sentence_to_np(conversation,
+                    max_conversation_words)
 
-        yield persona, partner_sentences, agent_responses
+            # get response
+            response = exchange[1]
+            response_len = len(exchange[1])
+
+            # convert response
+            np_response = sentence_to_np(response, max_sentence_len)
+
+            # yield
+            yield np_persona, np_conversation, np_response, persona_lens, \
+                    conversation_len, response_len
+
+            # add agent sentence to conversation
+            for word in exchange[1]:
+                conversation.append(word)
+            conversation.append(0) # append id for "<pad>"
+            conversation_len += len(exchange[1]) + 1
 
 
 def get_training_batch_full(dataset, batch_size, max_sentence_len,
