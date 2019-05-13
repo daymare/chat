@@ -199,12 +199,18 @@ def get_eval_batch_iterator(dataset, batch_size, max_sentence_len,
     sentence_lens = []
     response_lens = []
 
-    for sample in get_eval_iterator(dataset, max_sentence_len
-            max_conversation_len, max_conversation_words,
+    for sample in get_eval_iterator(
+            dataset, 
+            max_sentence_len,
+            max_conversation_len, 
+            max_conversation_words,
             max_persona_sentences):
+
+        # break out the sample
         persona, conversation, response, persona_sentence_lens, \
             conversation_len, response_len = sample
 
+        # add to lists
         personas.append(persona)
         sentences.append(conversation)
         responses.append(response)
@@ -260,7 +266,7 @@ def get_eval_iterator(dataset, max_sentence_len,
             # add partner sentence to conversation
             for word in exchange[0]:
                 conversation.append(word)
-            converstaion.append(0) # append id for "<pad>"
+            conversation.append(0) # append id for "<pad>"
             conversation_len += len(exchange[0]) + 1
 
             # convert conversation
