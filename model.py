@@ -9,6 +9,7 @@ import tensorflow as tf
 import numpy as np
 
 from util.data_util import get_training_batch_full
+from util.data_util import get_eval_batch_iterator
 
 
 def lstm(units):
@@ -272,14 +273,18 @@ class Model(object):
             if self.config.save_summary == True:
                 # record eval loss
                 # TODO make parameter for how often to run eval
-                if step % 10 == 0:
+                if step % 100 == 0:
                     with (tf.contrib.summary.
                             always_record_summaries()):
                         # run eval
-                        eval_loss = self.eval(test_data)
+                        print('Running Eval')
+                        eval_loss, eval_ppl = self.eval(test_data)
 
                         # record eval performance
-                        tf.contrib.summary.scalar('loss', eval_loss)
+                        print('Eval loss: {:.4f}'.format(eval_loss.numpy()))
+                        print('Eval perplexity: {:.4f}'.format(eval_ppl.numpy()))
+                        tf.contrib.summary.scalar('eval_loss', eval_loss)
+                        tf.contrib.summary.scalar('eval_ppl', eval_ppl)
 
                 with (tf.contrib.summary.
                         record_summaries_every_n_global_steps(
@@ -307,55 +312,53 @@ class Model(object):
         """ get loss on eval set
         """
         total_loss = 0.0
+        total_ppl = 0.0 # perplexity
         num_samples = 0
 
-        for persona, partner_sentences, agent_responses in (
-                get_eval_iterator(test_data,
-                    self.config.max_sentence_len)):
+        for batch in get_eval_batch_iterator(
+                test_data,
+                self.config.batch_size,
+                self.config.max_sentence_len,
+                self.config.max_conversation_len,
+                self.config.max_conversation_words,
+                self.config.max_persona_len):
+            num_samples += self.config.batch_size
 
-            # process persona information
-            persona = tf.expand_dims(persona, 0)
-            persona_embeddings = self.persona_encoder(persona)
+            # split out batch
+            personas, sentences, responses, persona_lens, \
+                sentence_lens, response_lens = batch
 
-            # initialize encoder hidden state
-            enc_hidden = self.encoder.initialize_hidden_state()
+            # run encoder
+            hidden = self.encoder.initialize_hidden_state()
+            enc_output, enc_hidden = self.encoder(sentences, hidden)
+            
+            dec_hidden = enc_hidden
 
-            # process each sentence in the conversation
-            for i in range(len(partner_sentences)):
-                num_samples += 1
+            persona_embeddings = self.persona_encoder(personas)
 
-                # encode partner sentence
-                partner_sentence = partner_sentences[i]
-                partner_sentence.append(self.word2id['<pad>'])
-                _, enc_hidden = self.encoder(partner_sentence, enc_hidden)
+            dec_input = tf.expand_dims([self.word2id['<pad>']]
+                    * self.config.batch_size, 1)
 
-                # run decoder
-                dec_input = tf.expand_dims([self.word2id[
-                    '<pad>']], 0)
+            # run decoder with teacher forcing
+            for t in range(1, len(responses[0])):
+                predictions, dec_hidden = self.decoder(
+                        dec_input,
+                        persona_embeddings,
+                        dec_hidden)
 
-                for t in range(len(responses[0])):
-                    predictions, dec_hidden = self.decoder(
-                            dec_input,
-                            persona_embeddings,
-                            dec_hidden)
+                sample_loss, sample_ppl = \
+                    self.loss_function(responses[:, t], predictions)
 
-                    total_loss += self.loss_function(agent_responses[t], predictions)
-                    predicted_id = tf.argmax(predictions[0]).numpy()
+                total_loss += sample_loss
+                total_ppl += sample_ppl
 
-                    # check if decoder is done
-                    if self.id2word[predicted_id] == '<pad>':
-                        continue
+                # using teacher forcing
+                dec_input = tf.expand_dims(responses[:, t], 1)
 
-                    # feed predicted id back to decoder
-                    dec_input = tf.expand_dims([predicted_id], 0)
-
-                # encode dataset response
-                agent_sentence = agent_responses[i]
-                agent_sentence.append(self.word2id['<pad>'])
-                _, enc_hidden = self.encoder(agent_sentence, enc_hidden)
-
-            # return average eval loss over the whole set
-            return total_loss / num_samples
+            avg_loss = total_loss / num_samples
+            avg_ppl = total_ppl / num_samples
+            
+            return avg_loss, avg_ppl
 
     def call(self, inputs, reset=False):
         """ perform inference on inputs
