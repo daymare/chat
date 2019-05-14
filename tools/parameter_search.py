@@ -3,16 +3,18 @@ import math
 
 import tensorflow as tf
 
+from tensorflow.contrib.memory_stats import BytesInUse
+
 def get_loguniform(low_exponent, high_exponent):
     value = random.random() * 10
     exponent = random.randint(low_exponent, high_exponent)
 
     return value * 10**exponent
 
-def perform_parameter_search(model_class, tf_session, flags,
-        word2vec, id2word,
+def perform_parameter_search(model_class, flags,
+        word2vec, id2word, word2id,
         parameter_ranges, training_data, 
-        num_epochs_per_parameter=2500, 
+        num_steps_per_parameter=2500, 
         result_filepath="parameter_search_results.txt"):
     """ perform random parameter search
 
@@ -47,12 +49,11 @@ def perform_parameter_search(model_class, tf_session, flags,
             parameter_ranges else parameter_ranges["hidden_size"]
 
     model = None
-    sess = tf_session
 
     flags.save_summary = False
     flags.print_training = True
     flags.debug = False
-    flags.num_epochs = num_epochs_per_parameter
+    flags.train_steps = num_steps_per_parameter
 
     def generate_parameter_config():
         config = {}
@@ -63,17 +64,20 @@ def perform_parameter_search(model_class, tf_session, flags,
 
         return config
 
-    def apply_parameter_config(config, sess):
+    def apply_parameter_config(config):
+        print("applying config: {}".format(config), flush=True)
         tf.reset_default_graph()
-        sess.close()
-        sess = tf.Session()
 
         flags.learning_rate = config["learning_rate"]
-        flags.hidden_size = config["hidden_size"]
+        flags.num_units = config["hidden_size"]
 
-        model = model_class(flags, sess, word2vec, id2word)
+        model = model_class(flags, word2vec, id2word, word2id)
 
-        return sess, model
+        print("applied config")
+
+        #print("gpu memory usage (MB): {}".format(BytesInUse().numpy() / 1000000), flush=True)
+
+        return model
 
     best_loss_config = None
     best_loss = None
@@ -83,12 +87,12 @@ def perform_parameter_search(model_class, tf_session, flags,
     # test parameter configs
     while True:
         config = generate_parameter_config()
-        sess, model = apply_parameter_config(config, sess)
+        model = apply_parameter_config(config)
 
         # train
         try:
             loss, perplexity = model.train(training_data,
-                    None)
+                    None, num_steps_per_parameter, parameter_search=True)
         except:
             loss, perplexity = math.inf, math.inf
 
@@ -112,10 +116,10 @@ def perform_parameter_search(model_class, tf_session, flags,
                 str(num_tests))
         print_std_and_file(result_file, "tests since last best: " + \
                 str(tests_since_last_best))
-        print_std_and_file(result_file, "loss: " + str(loss) + \
+        print_std_and_file(result_file, "loss: " + str(loss.numpy()) + \
                 " " + str(config))
         print_std_and_file(result_file, "best loss: " + \
-                str(best_loss) + " " + str(best_loss_config))
+                str(best_loss.numpy()) + " " + str(best_loss_config))
 
         result_file.flush()
 
