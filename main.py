@@ -79,6 +79,8 @@ tf.app.flags.DEFINE_boolean('debug',
         False, 'run in debug mode?')
 tf.app.flags.DEFINE_boolean('run_inference',
         False, 'run inference instead of training?')
+tf.app.flags.DEFINE_boolean('parameter_search',
+        True, 'run parameter search instead of training?')
 
 
 # runtime "flags"
@@ -171,25 +173,24 @@ def main(_):
         print("loading model")
         model.load(config.model_save_filepath)
 
+    # perform parameter search
+    if config.parameter_search == True:
+        print("performing parameter search", flush=True)
+        parameter_ranges = {}
+        parameter_ranges["learning_rate"] = (-12, -2)
+        parameter_ranges["hidden_size"] = (100, 1000)
+
+        perform_parameter_search(Model, config,
+                word2vec, id2word, word2id, parameter_ranges,
+                train_data)
     # run inference
-    if config.run_inference == True:
+    elif config.run_inference == True:
         run_inference(model, dataset, word2id)
     else:
         # train model
         logging.debug('training model')
         model.train(train_data, test_data, config.train_steps)
 
-    # perform parameter search
-    # TODO add flag for parameter search
-    """
-    parameter_ranges = {}
-    parameter_ranges["learning_rate"] = (-12, -2)
-    parameter_ranges["hidden_size"] = (100, 100000)
-
-    perform_parameter_search(ProfileMemoryBot, sess, config,
-            word2vec, id2word, parameter_ranges,
-            train_data)
-    """
 
     sess.close()
 
