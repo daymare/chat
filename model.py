@@ -202,8 +202,19 @@ class Model(object):
         self.checkpoint.restore(
                 tf.train.latest_checkpoint(checkpoint_dir))
 
-    def train(self, train_data, test_data, num_steps):
+    def train(self, train_data, test_data, num_steps,
+            parameter_search=False):
         global_step = tf.train.get_or_create_global_step()
+
+        # keep track of average loss for parameter search
+        if parameter_search == True:
+            loss_history = []
+            ppl_history = []
+
+            def update_history(history, value, max=100):
+                if len(history) >= max:
+                    history.pop(0)
+                history.append(value)
 
         # tensorboard setup
         if self.config.save_summary == True:
@@ -270,6 +281,11 @@ class Model(object):
 
             self.optimizer.apply_gradients(zip(gradients, variables))
 
+            # record history for parameter search
+            if parameter_search == True:
+                update_history(loss_history, batch_loss)
+                update_history(ppl_history, batch_ppl)
+
             # record summaries
             if self.config.save_summary == True:
                 # record eval loss
@@ -308,6 +324,12 @@ class Model(object):
                     self.config.checkpoint_dir))
                 self.checkpoint.save(
                     file_prefix = self.config.checkpoint_dir)
+
+        if parameter_search == True:
+            recent_avg_loss = sum(loss_history) / len(loss_history)
+            recent_avg_ppl = sum(ppl_history) / len(ppl_history)
+
+            return recent_avg_loss, recent_avg_ppl
 
     def eval(self, test_data):
         """ get loss on eval set
