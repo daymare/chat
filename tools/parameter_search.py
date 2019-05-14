@@ -14,7 +14,7 @@ def get_loguniform(low_exponent, high_exponent):
 def perform_parameter_search(model_class, flags,
         word2vec, id2word, word2id,
         parameter_ranges, training_data, 
-        num_steps_per_parameter=2500, 
+        num_steps_per_parameter=500, 
         result_filepath="parameter_search_results.txt"):
     """ perform random parameter search
 
@@ -114,6 +114,8 @@ def perform_parameter_search(model_class, flags,
         print_std_and_file(result_file, "\n\n")
         print_std_and_file(result_file, "test_number: " + \
                 str(num_tests))
+        print_std_and_file(result_file, "memory usage (MB): {}"
+                .format(BytesInUse().numpy() / 1000000))
         print_std_and_file(result_file, "tests since last best: " + \
                 str(tests_since_last_best))
         print_std_and_file(result_file, "loss: " + str(loss.numpy()) + \
