@@ -170,7 +170,8 @@ class Model(object):
                 embedding)
 
         # optimizer and loss function
-        self.optimizer = optimizer = tf.train.AdamOptimizer()
+        self.optimizer = optimizer = \
+            tf.train.AdamOptimizer(learning_rate=config.learning_rate)
 
         # checkpoints
         checkpoint_dir = config.checkpoint_dir
