@@ -383,7 +383,7 @@ class Model(object):
             
             return avg_loss, avg_ppl
 
-    def call(self, inputs, reset=False):
+    def call(self, inputs, persona=None, reset=False):
         """ perform inference on inputs
         if reset=True then forget all past conversation.
         Otherwise cache conversation for future reference.
@@ -392,9 +392,58 @@ class Model(object):
             or next sentence to respond to.
             encoded as word ids
 
+        persona - persona to use. Must be passed if reset 
+            is true
+
         output - response encoded as word ids
         """
-        pass
+
+        # setup encoder hidden state
+        if reset == True or self.encoder_cache is None:
+            enc_hidden = self.encoder.initialize_hidden_state()
+        else:
+            enc_hidden = self.encoder_cache
+
+        # encode persona
+        if persona is not None:
+            self.persona_embeddings = self.persona_encoder(persona)
+
+        if self.persona_embeddings is None:
+            raise Exception("need persona embeddings to run model!")
+
+        # run encoder
+        enc_output, enc_hidden = self.encoder(inputs, enc_hidden)
+        dec_hidden = enc_hidden
+
+        # run decoder
+        dec_input = tf.expand_dims([self.word2id[
+            '<pad>']] * 1, 1)
+        result = ""
+
+        for t in range(1, self.config.max_sentence_len):
+            predictions, dec_hidden = self.decoder(
+                    dec_input,
+                    self.persona_embeddings,
+                    dec_hidden)
+            
+            predicted_id = tf.argmax(predictions[0]).numpy()
+            predicted_word = self.id2word[predicted_id]
+
+            result += predicted_word
+
+            if predicted_word == '<pad>':
+                break
+
+            dec_input = tf.expand_dims([predicted_id], 0)
+
+        # run encoder on our output
+        _, enc_hidden = self.encoder(result, enc_hidden)
+        self.encoder_cache = enc_hidden
+
+        # return result
+        return result
+
+
 
 
 
