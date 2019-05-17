@@ -84,21 +84,18 @@ def get_training_batch_simple(dataset, batch_size, max_sentence_len):
 
     return sentences, responses, sentence_lens, response_lens
 
-def get_personas(dataset, max_sentence_len, max_conversation_len, max_persona_sentences):
+def get_personas(dataset, max_sentence_len, max_conversation_len, max_persona_sentences, max_conversation_words):
     """ get two random personas from the dataset
 
     could be the same persona.
     """
-    persona1, _, _, persona1_sentence_lens, _, _ = get_full_sample(
-            dataset, max_sentence_len, max_conversation_len, max_persona_sentences)
+    persona1, _, _, _, _, _ = get_full_sample(
+            dataset, max_sentence_len, max_conversation_len, max_conversation_words, max_persona_sentences)
 
-    persona2, _, _, persona2_sentence_lens, _, _ = get_full_sample(
-            dataset, max_sentence_len, max_conversation_len, max_persona_sentences)
+    persona2, _, _, _, _, _ = get_full_sample(
+            dataset, max_sentence_len, max_conversation_len, max_conversation_words, max_persona_sentences)
 
-    p1_tuple = (persona1, persona1_sentence_lens)
-    p2_tuple = (persona2, persona2_sentence_lens)
-
-    return p1_tuple, p2_tuple
+    return persona1, persona2
 
 
 def get_full_sample(dataset, max_sentence_len, max_conversation_len,
@@ -354,13 +351,26 @@ def get_training_batch_full(dataset, batch_size, max_sentence_len,
 def convert_sentence_to_id(sentence, word2id):
     converted_sentence = []
 
-    for word in sentence:
+    for word in sentence.split():
         # expecting to get a lot of exceptions here from
         # running inference
         try:
             converted_sentence.append(word2id[word])
         except:
+            print("exception in convert_sentence_to_id!")
             print(sentence)
+            print(word)
+
+    return np.array(converted_sentence, dtype=np.int32)
+
+def convert_sentence_from_id(sentence, id2word):
+    converted_sentence = ""
+    converted_sentence += id2word[sentence[0]]
+
+    for word_id in sentence[1:]:
+        converted_sentence += " "
+        word_str = id2word[word_id]
+        converted_sentence += word_str
 
     return converted_sentence
 
@@ -413,7 +423,6 @@ def convert_to_id(dataset, word2id):
         converted_dataset.append(converted_chat)
 
     return converted_dataset
-
 
 def print_chat(chat):
     """ print out the contents of a chat
