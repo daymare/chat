@@ -10,7 +10,7 @@ import numpy as np
 
 from util.load_util import load_word_embeddings, load_dataset
 from util.data_util import get_data_info, convert_to_id
-from inference.run_chat import run_inference
+from inference import run_inference
 
 from model import Model
 
@@ -41,11 +41,11 @@ tf.app.flags.DEFINE_string('embedding_fname',
 # TODO split this into multiple parameters as necessary
 # shouldn't have one size for everything
 tf.app.flags.DEFINE_integer('num_units', 
-        963, 'size of the hidden layers')
+        500, 'size of the hidden layers')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
 tf.app.flags.DEFINE_float('learning_rate',
-        0.000128, 'learning rate during training')
+        0.021583475806248406, 'learning rate during training')
 tf.app.flags.DEFINE_integer('train_steps',
         1000000, 'number of training steps to train for')
 tf.app.flags.DEFINE_integer('batch_size',
@@ -53,7 +53,7 @@ tf.app.flags.DEFINE_integer('batch_size',
 
 # training flags
 tf.app.flags.DEFINE_boolean('save_summary',
-        False, 'controls whether summaries are saved during training.')
+        True, 'controls whether summaries are saved during training.')
 tf.app.flags.DEFINE_integer('save_frequency',
         100, 'number of epochs between summary saves')
 tf.app.flags.DEFINE_boolean('print_training',
@@ -63,7 +63,7 @@ tf.app.flags.DEFINE_integer('print_dot_interval',
 tf.app.flags.DEFINE_integer('dots_per_line',
         45, 'number of dots printed between newlines')
 tf.app.flags.DEFINE_integer('model_save_interval',
-        1000, 'number of epochs between model saves')
+        10, 'number of epochs between model saves')
 tf.app.flags.DEFINE_boolean('save_model',
         False, 'whether to save the model or not')
 tf.app.flags.DEFINE_string('checkpoint_dir',
@@ -171,7 +171,7 @@ def main(_):
     # TODO add check to ensure the file exists
     if config.load_model == True or config.run_inference == True:
         print("loading model")
-        model.load(config.model_save_filepath)
+        model.load(config.checkpoint_dir)
 
     # perform parameter search
     if config.parameter_search == True:
@@ -185,14 +185,13 @@ def main(_):
                 train_data)
     # run inference
     elif config.run_inference == True:
-        run_inference(model, dataset, word2id)
+        config.batch_size = 1
+        run_inference(dataset, config, word2id, word2vec, id2word, 1)
     else:
         # train model
         logging.debug('training model')
         model.train(train_data, test_data, config.train_steps)
 
-
-    sess.close()
 
 if __name__ == '__main__':
     tf.app.run()
