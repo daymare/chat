@@ -206,6 +206,10 @@ class Model(object):
                 self.config.batch_size,
                 embedding)
 
+        # layer for translating from encoder hidden
+        # to decoder hidden
+        self.enc_dec_layer = tf.keras.layers.Dense(self.config.decoder_units)
+
         # optimizer and loss function
         self.optimizer = optimizer = \
             tf.train.AdamOptimizer(learning_rate=config.learning_rate)
@@ -284,7 +288,7 @@ class Model(object):
                 # TODO double check padding isn't screwing up the encoder training.
                 # May want to restructure how we are doing input
                 enc_output, enc_hidden = self.encoder(sentences, hidden)
-                dec_hidden = enc_hidden
+                dec_hidden = self.enc_dec_layer(enc_hidden)
 
                 persona_embeddings = self.persona_encoder(personas)
 
@@ -394,7 +398,7 @@ class Model(object):
             hidden = self.encoder.initialize_hidden_state()
             enc_output, enc_hidden = self.encoder(sentences, hidden)
             
-            dec_hidden = enc_hidden
+            dec_hidden = self.enc_dec_layer(enc_hidden)
 
             persona_embeddings = self.persona_encoder(personas)
 
