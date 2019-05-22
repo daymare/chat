@@ -38,10 +38,12 @@ tf.app.flags.DEFINE_string('embedding_fname',
         'filepath of word embeddings')
 
 # model flags
-# TODO split this into multiple parameters as necessary
-# shouldn't have one size for everything
-tf.app.flags.DEFINE_integer('num_units', 
-        500, 'size of the hidden layers')
+tf.app.flags.DEFINE_list('encoder_sizes', '500, 300',
+        'size of each layer in the encoder')
+tf.app.flags.DEFINE_list('persona_encoder_sizes', '500, 300',
+        'size of each layer in the persona encoder')
+tf.app.flags.DEFINE_integer('decoder_units', 
+        500, 'size of the hidden layer in the decoder')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
 tf.app.flags.DEFINE_float('learning_rate',
@@ -63,9 +65,9 @@ tf.app.flags.DEFINE_integer('print_dot_interval',
 tf.app.flags.DEFINE_integer('dots_per_line',
         45, 'number of dots printed between newlines')
 tf.app.flags.DEFINE_integer('model_save_interval',
-        10, 'number of epochs between model saves')
+        1000, 'number of epochs between model saves')
 tf.app.flags.DEFINE_boolean('save_model',
-        False, 'whether to save the model or not')
+        True, 'whether to save the model or not')
 tf.app.flags.DEFINE_string('checkpoint_dir',
         './train/model_save/', 'where to save the model')
 tf.app.flags.DEFINE_string('logdir',
@@ -80,7 +82,7 @@ tf.app.flags.DEFINE_boolean('debug',
 tf.app.flags.DEFINE_boolean('run_inference',
         False, 'run inference instead of training?')
 tf.app.flags.DEFINE_boolean('parameter_search',
-        True, 'run parameter search instead of training?')
+        False, 'run parameter search instead of training?')
 
 
 # runtime "flags"
@@ -122,6 +124,7 @@ def main(_):
     word2id, id2word, max_sentence_len, max_conversation_len, \
             max_conversation_words, max_persona_len = get_data_info(dataset)
 
+    # load runtime "flags"
     config.max_sentence_len = max_sentence_len
     config.max_conversation_len = max_conversation_len
     config.max_conversation_words = max_conversation_words

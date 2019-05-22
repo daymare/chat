@@ -188,20 +188,20 @@ class Model(object):
                 weights=word2vec,
                 trainable=False)
 
-
-        layer_sizes = [self.config.num_units, self.config.num_units]
+        persona_encoder_sizes = [int(s_val) for s_val in config.persona_encoder_sizes]
+        encoder_sizes = [int(s_val) for s_val in config.encoder_sizes]
         
         self.persona_encoder = PersonaEncoder(
-                layer_sizes, 
+                persona_encoder_sizes, 
                 self.config.batch_size,
                 embedding)
 
         self.encoder = Encoder(
-                layer_sizes, 
+                encoder_sizes, 
                 self.config.batch_size,
                 embedding)
         self.decoder = Decoder(
-                self.config.num_units, 
+                self.config.decoder_units, 
                 self.config.vocab_size,
                 self.config.batch_size,
                 embedding)
