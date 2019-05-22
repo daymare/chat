@@ -35,14 +35,14 @@ def gru(units):
 
 
 class PersonaEncoder(tf.keras.Model):
-    def __init__(self, enc_units, batch_size, embedding):
+    def __init__(self, layer_sizes, batch_size, embedding):
         super(PersonaEncoder, self).__init__()
 
         self.batch_size = batch_size
-        self.enc_units = enc_units
+        self.layer_sizes = layer_sizes
         self.embedding = embedding
 
-        self.gru = gru(self.enc_units)
+        self.cells = [gru(size) for size in layer_sizes]
 
     def call(self, personas):
         """
@@ -59,9 +59,18 @@ class PersonaEncoder(tf.keras.Model):
         for persona in personas:
             hidden = self.initialize_hidden_state()
             persona = self.embedding(persona)
-            output, _ = self.gru(persona, initial_state=hidden)
-            last_output = output[:,-1,:]
-            outputs.append(last_output)
+
+            x = persona
+
+            for layer in range(len(self.cells)):
+                cell = self.cells[layer]
+                layer_hidden = hidden[layer]
+
+                output, layer_hidden = cell(x, layer_hidden)
+
+                x = output
+
+            outputs.append(layer_hidden)
 
         # reshape outputs to be what we expect
         outputs = tf.convert_to_tensor(outputs)
@@ -70,24 +79,48 @@ class PersonaEncoder(tf.keras.Model):
         return outputs
 
     def initialize_hidden_state(self):
-        return tf.zeros((self.batch_size, self.enc_units))
+        hidden = []
+        for layer in range(len(self.cells)):
+            layer_size = self.layer_sizes[layer]
+            layer_hidden = tf.zeros((self.batch_size, layer_size))
+            hidden.append(layer_hidden)
+
+        return hidden
 
 class Encoder(tf.keras.Model):
-    def __init__(self, enc_units, batch_size, embedding):
+    def __init__(self, layer_sizes, batch_size, embedding):
         super(Encoder, self).__init__()
 
         self.batch_size = batch_size
-        self.enc_units = enc_units
+        self.layer_sizes = layer_sizes
         self.embedding = embedding
-        self.gru = gru(self.enc_units)
+
+        self.cells = [gru(size) for size in layer_sizes]
+
 
     def call(self, x, hidden):
         x = self.embedding(x)
-        output, state = self.gru(x, initial_state=hidden)
-        return output, state
+
+        for layer in range(len(self.cells)):
+            cell = self.cells[layer]
+            layer_hidden = hidden[layer]
+
+            output, layer_hidden = cell(x, layer_hidden)
+
+            x = output
+
+        # return outputs from the last layer 
+        # and hidden state from the last layer last timestep
+        return output, layer_hidden
 
     def initialize_hidden_state(self):
-        return tf.zeros((self.batch_size, self.enc_units))
+        hidden = []
+        for layer in range(len(self.cells)):
+            layer_size = self.layer_sizes[layer]
+            layer_hidden = tf.zeros((self.batch_size, layer_size))
+            hidden.append(layer_hidden)
+
+        return hidden
 
 class Decoder(tf.keras.Model):
     def __init__(self, dec_units, vocab_size, batch_size, embedding):
@@ -154,13 +187,17 @@ class Model(object):
                 output_dim=self.config.embedding_dim,
                 weights=word2vec,
                 trainable=False)
+
+
+        layer_sizes = [self.config.num_units, self.config.num_units]
         
         self.persona_encoder = PersonaEncoder(
-                self.config.num_units, 
+                layer_sizes, 
                 self.config.batch_size,
                 embedding)
+
         self.encoder = Encoder(
-                self.config.num_units, 
+                layer_sizes, 
                 self.config.batch_size,
                 embedding)
         self.decoder = Decoder(
@@ -312,6 +349,8 @@ class Model(object):
             # print out progress
             print('\n')
             print('Batch {}'.format(step + 1))
+            print('Memory usage (MB): {}'.format(tf.contrib.memory_stats.BytesInUse() / 1000000))
+            print('Max memory usage (MB): {}'.format(tf.contrib.memory_stats.MaxBytesInUse() / 1000000))
             print('Loss: {:.4f}'.format(batch_loss.numpy()))
             print('Perplexity: {:.4f}'.format(batch_ppl.numpy()))
             print('Time taken for 1 step {} sec'.format(
