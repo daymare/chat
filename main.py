@@ -14,7 +14,7 @@ from inference import run_inference
 
 from model import Model
 
-from tools.parameter_search import perform_parameter_search
+from parameter_search import perform_parameter_search
 
 
 config = tf.app.flags.FLAGS
