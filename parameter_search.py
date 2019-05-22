@@ -14,7 +14,7 @@ def get_loguniform(low_exponent, high_exponent):
 def perform_parameter_search(model_class, flags,
         word2vec, id2word, word2id,
         parameter_ranges, training_data, 
-        num_steps_per_parameter=500, 
+        num_steps_per_parameter=1000, 
         result_filepath="parameter_search_results.txt"):
     """ perform random parameter search
 
@@ -48,6 +48,9 @@ def perform_parameter_search(model_class, flags,
     hidden_size_range = None if "hidden_size" not in \
             parameter_ranges else parameter_ranges["hidden_size"]
 
+    num_layers_range = None if "num_layers" not in \
+            parameter_ranges else parameter_ranges["num_layers"]
+
     model = None
 
     flags.save_summary = False
@@ -59,8 +62,22 @@ def perform_parameter_search(model_class, flags,
         config = {}
         config["learning_rate"] = get_loguniform(learning_rate_range[0], 
                 learning_rate_range[1])
-        config["hidden_size"] = random.randint(hidden_size_range[0],
-                hidden_size_range[1])
+
+        def get_hidden_size():
+            return random.randint(hidden_size_range[0],
+                    hidden_size_range[1])
+        def get_num_layers():
+            return random.randint(num_layers_range[0],
+                    num_layers_range[1])
+
+        # generate persona encoder sizes
+        persona_encoder_sizes = [str(get_hidden_size()) for i in range(get_num_layers())]
+        encoder_sizes = [str(get_hidden_size()) for i in range(get_num_layers())]
+        decoder_size = get_hidden_size()
+
+        config["persona_encoder_sizes"] = persona_encoder_sizes
+        config["encoder_sizes"] = encoder_sizes
+        config["decoder_units"] = decoder_size
 
         return config
 
@@ -69,13 +86,13 @@ def perform_parameter_search(model_class, flags,
         tf.reset_default_graph()
 
         flags.learning_rate = config["learning_rate"]
-        flags.num_units = config["hidden_size"]
+        flags.persona_encoder_sizes = config["persona_encoder_sizes"]
+        flags.encoder_sizes = config["encoder_sizes"]
+        flags.decoder_units = config["decoder_units"]
 
         model = model_class(flags, word2vec, id2word, word2id)
 
         print("applied config")
-
-        #print("gpu memory usage (MB): {}".format(BytesInUse().numpy() / 1000000), flush=True)
 
         return model
 

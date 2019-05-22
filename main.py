@@ -82,7 +82,7 @@ tf.app.flags.DEFINE_boolean('debug',
 tf.app.flags.DEFINE_boolean('run_inference',
         False, 'run inference instead of training?')
 tf.app.flags.DEFINE_boolean('parameter_search',
-        False, 'run parameter search instead of training?')
+        True, 'run parameter search instead of training?')
 
 
 # runtime "flags"
@@ -182,6 +182,7 @@ def main(_):
         parameter_ranges = {}
         parameter_ranges["learning_rate"] = (-12, -2)
         parameter_ranges["hidden_size"] = (100, 1000)
+        parameter_ranges["num_layers"] = (1, 5)
 
         perform_parameter_search(Model, config,
                 word2vec, id2word, word2id, parameter_ranges,
