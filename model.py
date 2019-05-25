@@ -50,7 +50,7 @@ class PersonaEncoder(tf.keras.Model):
         self.layer_sizes = layer_sizes
         self.embedding = embedding
 
-        self.cells = [gru(size) for size in layer_sizes]
+        self.cells = [lstm(size) for size in layer_sizes]
 
     def call(self, personas):
         """
@@ -74,7 +74,8 @@ class PersonaEncoder(tf.keras.Model):
                 cell = self.cells[layer]
                 layer_hidden = hidden[layer]
 
-                output, layer_hidden = cell(x, layer_hidden)
+                output, hidden1, hidden2 = cell(x, layer_hidden)
+                layer_hidden = hidden1 + hidden2
 
                 x = output
 
@@ -90,7 +91,8 @@ class PersonaEncoder(tf.keras.Model):
         hidden = []
         for layer in range(len(self.cells)):
             layer_size = self.layer_sizes[layer]
-            layer_hidden = tf.zeros((self.batch_size, layer_size))
+            layer_hidden = [tf.zeros((self.batch_size, layer_size)),
+                    tf.zeros((self.batch_size, layer_size))]
             hidden.append(layer_hidden)
 
         return hidden
@@ -103,7 +105,7 @@ class Encoder(tf.keras.Model):
         self.layer_sizes = layer_sizes
         self.embedding = embedding
 
-        self.cells = [gru(size) for size in layer_sizes]
+        self.cells = [lstm(size) for size in layer_sizes]
 
 
     def call(self, x, hidden):
@@ -113,7 +115,8 @@ class Encoder(tf.keras.Model):
             cell = self.cells[layer]
             layer_hidden = hidden[layer]
 
-            output, layer_hidden = cell(x, layer_hidden)
+            output, hidden1, hidden2 = cell(x, layer_hidden)
+            layer_hidden = hidden1 + hidden2
 
             x = output
 
@@ -125,7 +128,8 @@ class Encoder(tf.keras.Model):
         hidden = []
         for layer in range(len(self.cells)):
             layer_size = self.layer_sizes[layer]
-            layer_hidden = tf.zeros((self.batch_size, layer_size))
+            layer_hidden = [tf.zeros((self.batch_size, layer_size)),
+                tf.zeros((self.batch_size, layer_size))]
             hidden.append(layer_hidden)
 
         return hidden
@@ -137,7 +141,7 @@ class Decoder(tf.keras.Model):
         self.batch_size = batch_size
         self.dec_units = dec_units
         self.embedding = embedding
-        self.gru = gru(self.dec_units)
+        self.cell = lstm(dec_units)
         self.projection_layer = tf.keras.layers.Dense(vocab_size)
 
         # attention stuff
@@ -172,7 +176,8 @@ class Decoder(tf.keras.Model):
         # x shape after concatenation (batch size, 1, embedding dim + hidden size)
         x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
 
-        output, state = self.gru(x)
+        output, state1, state2 = self.cell(x)
+        state = state1 + state2
 
         # output shape: (batch_size, hidden_size)
         output = tf.reshape(output, (-1, output.shape[2]))
@@ -183,7 +188,8 @@ class Decoder(tf.keras.Model):
         return x, state
 
     def initialize_hidden_state(self):
-        return tf.zeros((self.batch_size, self.dec_units))
+        return [tf.zeros((self.batch_size, self.dec_units)),
+                tf.zeros((self.batch_size, self.dec_units))]
 
 
 class Model(object):
