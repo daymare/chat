@@ -110,6 +110,9 @@ def perform_parameter_search(model_class, flags,
         try:
             loss, perplexity = model.train(training_data,
                     None, num_steps_per_parameter, parameter_search=True)
+
+            loss = loss.numpy()
+            perplexity = perplexity.numpy()
         except:
             loss, perplexity = math.inf, math.inf
 
@@ -135,10 +138,10 @@ def perform_parameter_search(model_class, flags,
                 .format(BytesInUse().numpy() / 1000000))
         print_std_and_file(result_file, "tests since last best: " + \
                 str(tests_since_last_best))
-        print_std_and_file(result_file, "loss: " + str(loss.numpy()) + \
+        print_std_and_file(result_file, "loss: " + str(loss) + \
                 " " + str(config))
         print_std_and_file(result_file, "best loss: " + \
-                str(best_loss.numpy()) + " " + str(best_loss_config))
+                str(best_loss) + " " + str(best_loss_config))
 
         result_file.flush()
 
