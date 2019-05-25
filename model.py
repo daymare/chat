@@ -13,10 +13,18 @@ from util.data_util import get_eval_batch_iterator
 
 
 def lstm(units):
-    return tf.keras.layers.CuDNNLSTM(units,
-            return_sequences=True,
-            return_state=True,
-            recurrent_initializer='orthogonal')
+    if tf.test.is_gpu_available():
+        return tf.keras.layers.CuDNNLSTM(units,
+                return_sequences=True,
+                return_state=True,
+                recurrent_initializer='orthogonal')
+    else:
+        return tf.keras.layers.LSTM(
+                units,
+                return_sequences=True,
+                return_state=True,
+                recurrent_initializer='orthogonal')
+
 
 def gru(units):
     if tf.test.is_gpu_available():
