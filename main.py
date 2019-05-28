@@ -38,16 +38,16 @@ tf.app.flags.DEFINE_string('embedding_fname',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_list('encoder_sizes', '500, 300',
+tf.app.flags.DEFINE_list('encoder_sizes', '662, 165, 478',
         'size of each layer in the encoder')
-tf.app.flags.DEFINE_list('persona_encoder_sizes', '500, 300',
+tf.app.flags.DEFINE_list('persona_encoder_sizes', '276, 455, 176, 222, 374',
         'size of each layer in the persona encoder')
 tf.app.flags.DEFINE_integer('decoder_units', 
-        500, 'size of the hidden layer in the decoder')
+        178, 'size of the hidden layer in the decoder')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
 tf.app.flags.DEFINE_float('learning_rate',
-        0.021583475806248406, 'learning rate during training')
+        0.008, 'learning rate during training')
 tf.app.flags.DEFINE_integer('train_steps',
         1000000, 'number of training steps to train for')
 tf.app.flags.DEFINE_integer('batch_size',
@@ -82,7 +82,7 @@ tf.app.flags.DEFINE_boolean('debug',
 tf.app.flags.DEFINE_boolean('run_inference',
         False, 'run inference instead of training?')
 tf.app.flags.DEFINE_boolean('parameter_search',
-        True, 'run parameter search instead of training?')
+        False, 'run parameter search instead of training?')
 
 
 # runtime "flags"
@@ -154,7 +154,7 @@ def main(_):
     train_size = int(len(dataset) * 0.9)
 
     train_data = dataset[:train_size]
-    # test is remainder after training
+    #train_data = dataset[:1]
     test_data = dataset[train_size:] 
 
     # setup debugger
@@ -181,7 +181,7 @@ def main(_):
         print("performing parameter search", flush=True)
         parameter_ranges = {}
         parameter_ranges["learning_rate"] = (-12, -2)
-        parameter_ranges["hidden_size"] = (100, 1000)
+        parameter_ranges["hidden_size"] = (100, 700)
         parameter_ranges["num_layers"] = (1, 5)
 
         perform_parameter_search(Model, config,
