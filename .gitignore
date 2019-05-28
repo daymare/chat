@@ -8,3 +8,4 @@ nmt/
 train/
 tensorflow
 parameter_search_results.txt
+best_parameters.txt
