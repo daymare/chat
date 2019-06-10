@@ -1,5 +1,4 @@
-
-import logging
+import logging 
 import random
 import sys
 import os
@@ -51,23 +50,19 @@ tf.app.flags.DEFINE_float('learning_rate',
 tf.app.flags.DEFINE_integer('train_steps',
         1000000, 'number of training steps to train for')
 tf.app.flags.DEFINE_integer('batch_size',
-        64, 'batch size')
+        16, 'batch size')
 
 # training flags
 tf.app.flags.DEFINE_boolean('save_summary',
-        True, 'controls whether summaries are saved during training.')
+        False, 'controls whether summaries are saved during training.')
 tf.app.flags.DEFINE_integer('save_frequency',
         100, 'number of epochs between summary saves')
 tf.app.flags.DEFINE_boolean('print_training',
         True, 'controls whether training progress is printed')
-tf.app.flags.DEFINE_integer('print_dot_interval',
-        20, 'number of epochs between dot prints to screen')
-tf.app.flags.DEFINE_integer('dots_per_line',
-        45, 'number of dots printed between newlines')
 tf.app.flags.DEFINE_integer('model_save_interval',
         1000, 'number of epochs between model saves')
 tf.app.flags.DEFINE_boolean('save_model',
-        True, 'whether to save the model or not')
+        False, 'whether to save the model or not')
 tf.app.flags.DEFINE_string('checkpoint_dir',
         './train/model_save/', 'where to save the model')
 tf.app.flags.DEFINE_string('logdir',
