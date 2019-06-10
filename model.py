@@ -344,8 +344,7 @@ class Model(object):
             # record summaries
             if self.config.save_summary == True:
                 # record eval loss
-                # TODO make parameter for how often to run eval
-                if step % 100 == 0:
+                if step % self.config.eval_frequency == 0:
                     with (tf.contrib.summary.
                             always_record_summaries()):
                         # run eval
