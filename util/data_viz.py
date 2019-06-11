@@ -28,7 +28,8 @@ def look_at_data(dataset):
 
     n - next conversation
     p - previous conversation
-    r - random conversation
+    any key - continue conversation
+    s - toggle show full conversation or exchange by exchange
     q - quit
 
     TODO implement help message
@@ -37,10 +38,12 @@ def look_at_data(dataset):
 
     i = 0
     quit = False
+    show = True
 
     while quit is False:
         os.system('clear')
         print("chat {}".format(i))
+        print("show mode: {}".format(show))
 
         # print out the current conversation
         chat = dataset[i]
@@ -57,21 +60,48 @@ def look_at_data(dataset):
 
             print("    ", end="")
             print_sentence(partner_statement)
+            print("", flush=True, end="")
+
+            # take next command
+            if show is False:
+                ch = getch()
+
+                if ch == "n":
+                    # auto toggle will handle it for us
+                    i += 0
+                    break
+                elif ch == "p":
+                    # need to go back twice as 1 will be added
+                    i -= 2
+                    break
+                elif ch == "q":
+                    quit = True
+                    break
+                elif ch == "s":
+                    show = True
+
             print("        ", end="")
             print_sentence(your_statement)
-            print("", flush=True)
+            print("", flush=True, end="")
 
-        # take next command
-        ch = getch()
+        if show is True:
+            ch = getch()
 
-        if ch == "n":
+            if ch == "n":
+                i += 1
+            elif ch == "p":
+                i -= 1
+            elif ch == "q":
+                quit = True
+            elif ch == "s":
+                show = False
+        else:
             i += 1
-            i = min(i, len(dataset)-1)
-        elif ch == "p":
-            i -= 1
-            i = max(i, 0)
-        elif ch == "q":
-            quit = True
+
+        # ensure i is in a valid range
+        i = i % len(dataset)
+
+
 
 
 
