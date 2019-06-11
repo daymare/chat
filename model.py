@@ -4,6 +4,7 @@ import os
 import time
 import sys
 import logging
+import pdb
 
 import tensorflow as tf
 import numpy as np
@@ -357,11 +358,47 @@ class Model(object):
                         tf.contrib.summary.scalar('eval_loss', eval_loss)
                         tf.contrib.summary.scalar('eval_ppl', eval_ppl)
 
+                # record all other summaries
                 with (tf.contrib.summary.
                         record_summaries_every_n_global_steps(
                             self.config.save_frequency)):
+                    # loss and perplexity
                     tf.contrib.summary.scalar('loss', batch_loss)
                     tf.contrib.summary.scalar('perplexity', batch_ppl)
+
+                    # text output
+
+                    # histograms
+                    def record_histograms(cells, name):
+                        for i in range(len(cells)):
+                            cell = cells[i]
+                            kernel, recurrent_kernel, bias = cell.variables
+                            tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Kernel", kernel)
+                            tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_ReccurentKernel", recurrent_kernel)
+                            tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Bias", bias)
+                    record_histograms(self.persona_encoder.cells, "PersonaEncoder")
+                    record_histograms(self.encoder.cells, "Encoder")
+
+                    ## decoder histograms
+                    w1_kernel, w1_bias = self.decoder.W1.variables
+                    w2_kernel, w2_bias = self.decoder.W2.variables
+                    v_kernel, v_bias = self.decoder.V.variables
+                    projection_kernel, projection_bias = self.decoder.projection_layer.variables
+
+                    tf.contrib.summary.histogram("decoder_w1_kernel", w1_kernel)
+                    tf.contrib.summary.histogram("decoder_w1_bias", w1_bias)
+                    tf.contrib.summary.histogram("decoder_w2_kernel", w2_kernel)
+                    tf.contrib.summary.histogram("decoder_w2_bias", w2_bias)
+                    tf.contrib.summary.histogram("decoder_v_kernel", v_kernel)
+                    tf.contrib.summary.histogram("decoder_v_bias", v_bias)
+                    tf.contrib.summary.histogram("decoder_projection_kernel", projection_kernel)
+                    tf.contrib.summary.histogram("decoder_projection_bias", projection_bias)
+
+                    kernel, recurrent_kernel, bias = self.decoder.cell.variables
+                    tf.contrib.summary.histogram("decoder_kernel", kernel)
+                    tf.contrib.summary.histogram("decoder_recurrentkernel", recurrent_kernel)
+                    tf.contrib.summary.histogram("decoder_bias", bias)
+
 
             # print out progress
             print('\n')
