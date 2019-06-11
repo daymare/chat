@@ -9,6 +9,7 @@ import numpy as np
 
 from util.load_util import load_word_embeddings, load_dataset
 from util.data_util import get_data_info, convert_to_id
+from util.data_viz import look_at_data
 from inference import run_inference
 
 from model import Model
@@ -37,28 +38,28 @@ tf.app.flags.DEFINE_string('embedding_fname',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_list('encoder_sizes', '662, 165, 478',
+tf.app.flags.DEFINE_list('encoder_sizes', '600, 400, 200',
         'size of each layer in the encoder')
-tf.app.flags.DEFINE_list('persona_encoder_sizes', '276, 455, 176, 222, 374',
+tf.app.flags.DEFINE_list('persona_encoder_sizes', '600, 400, 200',
         'size of each layer in the persona encoder')
 tf.app.flags.DEFINE_integer('decoder_units', 
-        178, 'size of the hidden layer in the decoder')
+        400, 'size of the hidden layer in the decoder')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
 tf.app.flags.DEFINE_float('learning_rate',
-        0.008, 'learning rate during training')
+        0.00008, 'learning rate during training')
 tf.app.flags.DEFINE_integer('train_steps',
-        1000000, 'number of training steps to train for')
+        100, 'number of training steps to train for')
 tf.app.flags.DEFINE_integer('batch_size',
-        16, 'batch size')
+        32, 'batch size')
 
 # training flags
 tf.app.flags.DEFINE_boolean('save_summary',
-        False, 'controls whether summaries are saved during training.')
+        True, 'controls whether summaries are saved during training.')
 tf.app.flags.DEFINE_integer('save_frequency',
-        100, 'number of train steps between summary saves')
+        1, 'frequency of summary saves')
 tf.app.flags.DEFINE_integer('eval_frequency',
-        100, 'number of train steps between eval runs')
+        100, 'frequency of eval runs')
 tf.app.flags.DEFINE_boolean('print_training',
         True, 'controls whether training progress is printed')
 tf.app.flags.DEFINE_integer('model_save_interval',
@@ -78,6 +79,8 @@ tf.app.flags.DEFINE_boolean('debug',
         False, 'run in debug mode?')
 tf.app.flags.DEFINE_boolean('run_inference',
         False, 'run inference instead of training?')
+tf.app.flags.DEFINE_boolean('run_data_viz',
+        True, 'run dataset visualization instead of anything else')
 tf.app.flags.DEFINE_boolean('parameter_search',
         False, 'run parameter search instead of training?')
 
@@ -142,16 +145,18 @@ def main(_):
 
     # convert dataset to integer ids
     print('converting dataset to ids')
-    dataset = convert_to_id(dataset, word2id)
+    if config.run_data_viz is False:
+        dataset = convert_to_id(dataset, word2id)
 
     # split into train and test
     # TODO make split ratio into a parameter
     print('splitting dataset')
-    random.shuffle(dataset)
+    #random.shuffle(dataset)
     train_size = int(len(dataset) * 0.9)
 
-    train_data = dataset[:train_size]
+    #train_data = dataset[:train_size]
     #train_data = dataset[:1]
+    train_data = dataset
     test_data = dataset[train_size:] 
 
     # setup debugger
@@ -188,8 +193,11 @@ def main(_):
     elif config.run_inference == True:
         config.batch_size = 1
         run_inference(dataset, config, word2id, word2vec, id2word, 1)
+    # run data visualization
+    elif config.run_data_viz == True:
+        look_at_data(train_data)
+    # train model
     else:
-        # train model
         logging.debug('training model')
         model.train(train_data, test_data, config.train_steps)
 
