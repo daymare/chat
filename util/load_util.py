@@ -64,7 +64,6 @@ def load_dataset(dataset_filepath, pickle_file_location, load_from_pickle=True,
             # start next chat
             chats.append(current_chat)
             current_chat = Chat()
-            current_chat.your_persona.append(words[3:])
 
         if words[1] == "your" and words[2] == "persona:":
             current_chat.your_persona.append(words[3:])
