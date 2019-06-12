@@ -13,17 +13,21 @@ from util.data_util import get_training_batch_full
 from util.data_util import get_eval_batch_iterator
 
 
-def lstm(units):
+def lstm(units, name=None):
     if tf.test.is_gpu_available():
         return tf.keras.layers.CuDNNLSTM(units,
                 return_sequences=True,
                 return_state=True,
+                trainable=True,
+                name=name,
                 recurrent_initializer='orthogonal')
     else:
         return tf.keras.layers.LSTM(
                 units,
                 return_sequences=True,
                 return_state=True,
+                trainable=True,
+                name=name,
                 recurrent_initializer='orthogonal')
 
 
@@ -51,7 +55,12 @@ class PersonaEncoder(tf.keras.Model):
         self.layer_sizes = layer_sizes
         self.embedding = embedding
 
-        self.cells = [lstm(size) for size in layer_sizes]
+        # initialize cells
+        self.cells = []
+        for i in range(len(layer_sizes)):
+            name = "PersonaEncoder_Layer{}".format(i)
+            size = layer_sizes[i]
+            self.cells.append(lstm(size, name))
 
     def call(self, personas):
         """
@@ -106,8 +115,12 @@ class Encoder(tf.keras.Model):
         self.layer_sizes = layer_sizes
         self.embedding = embedding
 
-        self.cells = [lstm(size) for size in layer_sizes]
-
+        # initialize cells
+        self.cells = []
+        for i in range(len(layer_sizes)):
+            name = "Encoder_Layer{}".format(i)
+            size = layer_sizes[i]
+            self.cells.append(lstm(size, name))
 
     def call(self, x, hidden):
         x = self.embedding(x)
@@ -142,13 +155,13 @@ class Decoder(tf.keras.Model):
         self.batch_size = batch_size
         self.dec_units = dec_units
         self.embedding = embedding
-        self.cell = lstm(dec_units)
-        self.projection_layer = tf.keras.layers.Dense(vocab_size)
+        self.cell = lstm(dec_units, "Decoder")
+        self.projection_layer = tf.keras.layers.Dense(vocab_size, name="projection")
 
         # attention stuff
-        self.W1 = tf.keras.layers.Dense(self.dec_units)
-        self.W2 = tf.keras.layers.Dense(self.dec_units)
-        self.V = tf.keras.layers.Dense(1)
+        self.W1 = tf.keras.layers.Dense(self.dec_units, name="W1")
+        self.W2 = tf.keras.layers.Dense(self.dec_units, name="w2")
+        self.V = tf.keras.layers.Dense(1, name="V")
 
     def call(self, x, persona_embeddings, hidden):
         # attention calculations
