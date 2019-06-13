@@ -172,6 +172,8 @@ class Decoder(tf.keras.Model):
         hidden_with_time_axis = tf.expand_dims(hidden, 1)
 
         # score shape (batch size, max persona sentences, 1)
+        # TODO re enable persona encoder
+        """
         W1_hidden = self.W1(hidden_with_time_axis)
         W2_persona = self.W2(persona_embeddings)
         score = self.V(W1_hidden + W2_persona)
@@ -182,13 +184,14 @@ class Decoder(tf.keras.Model):
         # context vector shape after sum (batch size, hidden size)
         context_vector = attention_weights * persona_embeddings
         context_vector = tf.reduce_sum(context_vector, axis=1)
+        """
 
         # x shape after passing through embedding: 
         # (batch_szie, 1, embedding_dim)
         x = self.embedding(x)
 
         # x shape after concatenation (batch size, 1, embedding dim + hidden size)
-        x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
+        #x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
 
         output, dec_hidden1, dec_hidden2 = self.cell(x, hidden)
         dec_hidden = [dec_hidden1, dec_hidden2]
@@ -316,9 +319,16 @@ class Model(object):
                 # TODO double check padding isn't screwing up the encoder training.
                 # May want to restructure how we are doing input
                 enc_output, enc_hidden = self.encoder(sentences, hidden)
-                dec_hidden = self.enc_dec_layer(enc_hidden)
 
-                persona_embeddings = self.persona_encoder(personas)
+                # TODO consider re-enabling enc-dec layer
+                #dec_hidden = self.enc_dec_layer(enc_hidden)
+
+                # note that enc_hidden must be the same dim as decoder units
+                dec_hidden = enc_hidden
+
+                # disable persona for testing
+                # TODO re enable persona encoder
+                #persona_embeddings = self.persona_encoder(personas)
 
                 dec_input = tf.expand_dims([self.word2id[
                     '<pad>']] * self.config.batch_size, 1)
@@ -326,9 +336,10 @@ class Model(object):
                 # Teacher forcing - feed the target as the next input
                 for t in range(1, len(responses[0])):
                     # passing enc_output to the decoder
+                    # TODO re enable persona encoder
                     predictions, dec_hidden = self.decoder(
                             dec_input,
-                            persona_embeddings,
+                            None,
                             dec_hidden)
 
                     sample_loss, sample_ppl = \
@@ -358,7 +369,8 @@ class Model(object):
             # record summaries
             if self.config.save_summary == True:
                 # record eval loss
-                if step % self.config.eval_frequency == 0:
+                # TODO re-enable eval after validation
+                if step % self.config.eval_frequency == 0 and False:
                     with (tf.contrib.summary.
                             always_record_summaries()):
                         # run eval
@@ -389,21 +401,26 @@ class Model(object):
                             tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Kernel", kernel)
                             tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_ReccurentKernel", recurrent_kernel)
                             tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Bias", bias)
-                    record_histograms(self.persona_encoder.cells, "PersonaEncoder")
+                    # TODO re-enable persona encoder histogram
+                    #record_histograms(self.persona_encoder.cells, "PersonaEncoder")
                     record_histograms(self.encoder.cells, "Encoder")
 
                     ## decoder histograms
+                    """
                     w1_kernel, w1_bias = self.decoder.W1.variables
                     w2_kernel, w2_bias = self.decoder.W2.variables
                     v_kernel, v_bias = self.decoder.V.variables
+                    """
                     projection_kernel, projection_bias = self.decoder.projection_layer.variables
 
+                    """
                     tf.contrib.summary.histogram("decoder_w1_kernel", w1_kernel)
                     tf.contrib.summary.histogram("decoder_w1_bias", w1_bias)
                     tf.contrib.summary.histogram("decoder_w2_kernel", w2_kernel)
                     tf.contrib.summary.histogram("decoder_w2_bias", w2_bias)
                     tf.contrib.summary.histogram("decoder_v_kernel", v_kernel)
                     tf.contrib.summary.histogram("decoder_v_bias", v_bias)
+                    """
                     tf.contrib.summary.histogram("decoder_projection_kernel", projection_kernel)
                     tf.contrib.summary.histogram("decoder_projection_bias", projection_bias)
 
