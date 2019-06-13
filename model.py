@@ -301,21 +301,29 @@ class Model(object):
 
             start = time.time()
 
-            hidden = self.encoder.initialize_hidden_state()
-            loss = 0.0
-            ppl = 0.0
-
-            # get training batch
-            personas, sentences, responses, persona_lens, \
-                    sentence_lens, response_lens = \
-                    get_training_batch_full(
-                        train_data, self.config.batch_size,
-                        self.config.max_sentence_len,
-                        self.config.max_conversation_len,
-                        self.config.max_conversation_words,
-                        self.config.max_persona_len)
-            
             with tf.GradientTape() as tape:
+                hidden = self.encoder.initialize_hidden_state()
+                loss = 0.0
+                ppl = 0.0
+
+                # get training batch
+                personas, sentences, responses, persona_lens, \
+                        sentence_lens, response_lens = \
+                        get_training_batch_full(
+                            train_data, self.config.batch_size,
+                            self.config.max_sentence_len,
+                            self.config.max_conversation_len,
+                            self.config.max_conversation_words,
+                            self.config.max_persona_len)
+
+                tape.watch(sentences)
+                tape.watch(personas)
+                tape.watch(responses)
+                tape.watch(persona_lens)
+                tape.watch(sentence_lens)
+                tape.watch(response_lens)
+                tape.watch(hidden)
+
                 # TODO double check padding isn't screwing up the encoder training.
                 # May want to restructure how we are doing input
                 enc_output, enc_hidden = self.encoder(sentences, hidden)
@@ -354,8 +362,15 @@ class Model(object):
 
             batch_loss = (loss / self.config.batch_size)
             batch_ppl = (ppl / self.config.batch_size)
-            variables = self.encoder.variables + self.decoder.variables
+
+            # TODO ensure persona encoder variables have a gradient when it is re-enabled.
+            variables = (
+                    self.persona_encoder.variables 
+                    + self.encoder.variables 
+                    + self.decoder.variables
+                    )
             gradients = tape.gradient(loss, variables)
+
             gradients, _ = tf.clip_by_global_norm(gradients,
                     self.config.max_gradient_norm)
 
