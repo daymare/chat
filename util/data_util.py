@@ -1,5 +1,6 @@
 import random
 import numpy as np
+import tensorflow as tf
 
 
 from util.load_util import Chat
@@ -343,6 +344,14 @@ def get_training_batch_full(dataset, batch_size, max_sentence_len,
     persona_lens = np.array(persona_lens)
     sentence_lens = np.array(sentence_lens)
     response_lens = np.array(response_lens)
+
+    # convert to tensors
+    personas = tf.constant(personas)
+    sentences = tf.constant(sentences)
+    responses = tf.constant(responses)
+    persona_lens = tf.constant(persona_lens)
+    sentence_lens = tf.constant(sentence_lens)
+    response_lens = tf.constant(response_lens)
 
     return personas, sentences, responses, persona_lens, sentence_lens, \
             response_lens
