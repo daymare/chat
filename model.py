@@ -156,7 +156,9 @@ class Decoder(tf.keras.Model):
         self.dec_units = dec_units
         self.embedding = embedding
         self.cell = lstm(dec_units, "Decoder")
-        self.projection_layer = tf.keras.layers.Dense(vocab_size, name="projection")
+        self.projection_layer = tf.keras.layers.Dense(vocab_size,
+                kernel_initializer="glorot_normal",
+                bias_initializer="ones", name="projection")
 
         # attention stuff
         self.W1 = tf.keras.layers.Dense(self.dec_units, name="W1")
@@ -255,9 +257,8 @@ class Model(object):
                 decoder=self.decoder)
 
     def loss_function(self, real, pred):
-        mask = 1 - np.equal(real, 0)
         loss_ = tf.nn.sparse_softmax_cross_entropy_with_logits(
-                labels=real, logits=pred) * mask
+                labels=real, logits=pred)
         perplexity = tf.exp(loss_)
         return tf.reduce_mean(loss_), tf.reduce_mean(perplexity)
 
@@ -365,8 +366,8 @@ class Model(object):
                     dec_input = tf.expand_dims(responses[:, t], 1)
 
 
-            batch_loss = (loss / self.config.batch_size)
-            batch_ppl = (ppl / self.config.batch_size)
+            batch_loss = loss
+            batch_ppl = ppl
 
             # TODO ensure persona encoder variables have a gradient when it is re-enabled.
             variables = (
