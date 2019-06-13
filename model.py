@@ -342,6 +342,7 @@ class Model(object):
                     '<pad>']] * self.config.batch_size, 1)
 
                 # Teacher forcing - feed the target as the next input
+                model_response = [] # model response on index 0 for summary
                 for t in range(1, len(responses[0])):
                     # passing enc_output to the decoder
                     # TODO re enable persona encoder
@@ -352,6 +353,10 @@ class Model(object):
 
                     sample_loss, sample_ppl = \
                         self.loss_function(responses[:, t], predictions)
+
+                    # get model response
+                    predicted_id = tf.argmax(predictions[0]).numpy()
+                    model_response.append(predicted_id)
 
                     loss += sample_loss
                     ppl += sample_ppl
@@ -399,14 +404,68 @@ class Model(object):
                         tf.contrib.summary.scalar('eval_ppl', eval_ppl)
 
                 # record all other summaries
-                with (tf.contrib.summary.
-                        record_summaries_every_n_global_steps(
+                with (tf.contrib.summary.record_summaries_every_n_global_steps(
                             self.config.save_frequency)):
                     # loss and perplexity
                     tf.contrib.summary.scalar('loss', batch_loss)
                     tf.contrib.summary.scalar('perplexity', batch_ppl)
 
                     # text output
+                    text_meta = tf.SummaryMetadata()
+                    text_meta.plugin_data.plugin_name = "text"
+
+                    # always take index 0 as our example output
+                    ## persona
+                    # personas shape: (batch size, max_persona_sentences, max_persona_sentence_len)
+                    persona = personas[0] # (max_persona_sentences, max_persona_sentence_len)
+                    persona_words = []
+                    for sentence in persona:
+                        for word in sentence:
+                            if word.numpy() == 0:
+                                break
+                            else:
+                                persona_words.append(self.id2word[word])
+                    persona_text = tf.convert_to_tensor(" ".join(persona_words))
+                    tf.contrib.summary.generic('persona', persona_text, metadata=text_meta)
+
+                    ## sentence
+                    # sentences shape: (batch_size, max_conversation_words)
+                    conversation = sentences[0]
+                    conversation_words = []
+                    for i in range(len(conversation)):
+                        word = conversation[i]
+                        next_word = conversation[i+1]
+
+                        if i == len(conversation) - 2:
+                            break
+                        elif word.numpy() == 0 and next_word.numpy() == 0:
+                            break
+                        else:
+                            conversation_words.append(self.id2word[word])
+                    conversation_text = tf.convert_to_tensor(" ".join(conversation_words))
+                    tf.contrib.summary.generic('conversation', conversation_text, metadata=text_meta)
+
+                    ## response
+                    # response shape: (batch_size, max_sentence_len)
+                    response = responses[0]
+                    response_words = []
+                    for word in response:
+                        if word.numpy() == 0:
+                            break
+                        else:
+                            response_words.append(self.id2word[word])
+                    response_text = tf.convert_to_tensor(" ".join(response_words))
+                    tf.contrib.summary.generic('response', response_text, metadata=text_meta)
+
+                    ## model response
+                    model_words = []
+                    for word in model_response:
+                        if word == 0:
+                            break
+                        else:
+                            model_words.append(self.id2word[word])
+                    model_text = tf.convert_to_tensor(" ".join(model_words))
+                    tf.contrib.summary.generic('model_response', model_text, metadata=text_meta)
 
                     # histograms
                     def record_histograms(cells, name):
