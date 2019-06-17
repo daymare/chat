@@ -523,6 +523,16 @@ class Model(object):
                     tf.contrib.summary.histogram("decoder_recurrentkernel", recurrent_kernel)
                     tf.contrib.summary.histogram("decoder_bias", bias)
 
+                    # gradient histograms
+                    for i in range(len(variables)):
+                        variable = variables[i]
+                        gradient = gradients[i]
+
+                        try:
+                            tf.contrib.summary.histogram("{}_gradient".format(variable.name[:-2]), gradient)
+                            tf.contrib.summary.scalar("{}_gradient_mag".format(variable.name[:-2]), tf.norm(gradient))
+                        except Exception as e:
+                            pass
 
             # print out progress
             print('\n')
