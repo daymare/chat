@@ -295,6 +295,8 @@ class Model(object):
             summary_writer = tf.contrib.summary.create_file_writer(logdir)
             summary_writer.set_as_default()
 
+        last_enc_hidden = None
+
         # train loop
         for step in range(num_steps):
             global_step.assign_add(1)
@@ -314,19 +316,27 @@ class Model(object):
                             self.config.max_sentence_len,
                             self.config.max_conversation_len,
                             self.config.max_conversation_words,
-                            self.config.max_persona_len)
+                            self.config.max_persona_len,
+                            self.word2id)
 
                 tape.watch(sentences)
                 tape.watch(personas)
                 tape.watch(responses)
-                tape.watch(persona_lens)
-                tape.watch(sentence_lens)
-                tape.watch(response_lens)
                 tape.watch(hidden)
 
-                # TODO double check padding isn't screwing up the encoder training.
-                # May want to restructure how we are doing input
-                enc_output, enc_hidden = self.encoder(sentences, hidden)
+                _, enc_hidden = self.encoder(sentences, hidden)
+
+                # calculate cosine similarity between last two enc_hidden outputs
+                # this is to check that input is being processed meaningfully
+                if last_enc_hidden is not None:
+                    a = enc_hidden[1][0]
+                    b = last_enc_hidden[1][0]
+                    normalize_a = tf.nn.l2_normalize(a, 0)
+                    normalize_b = tf.nn.l2_normalize(b, 0)
+                    enc_hidden_cos_similarity = tf.reduce_sum(tf.multiply(normalize_a, normalize_b))
+                else:
+                    enc_hidden_cos_similarity = 0.0
+                last_enc_hidden = enc_hidden
 
                 # TODO consider re-enabling enc-dec layer
                 #dec_hidden = self.enc_dec_layer(enc_hidden)
@@ -409,6 +419,13 @@ class Model(object):
                     # loss and perplexity
                     tf.contrib.summary.scalar('loss', batch_loss)
                     tf.contrib.summary.scalar('perplexity', batch_ppl)
+
+                    # enc hidden norm
+                    tf.contrib.summary.scalar('enc_hidden_0_norm', tf.norm(enc_hidden[0]))
+                    tf.contrib.summary.scalar('enc_hidden_1_norm', tf.norm(enc_hidden[1]))
+
+                    # enc hidden cosine similarity
+                    tf.contrib.summary.scalar('enc_hidden_cos_sim', enc_hidden_cos_similarity)
 
                     # text output
                     text_meta = tf.SummaryMetadata()
