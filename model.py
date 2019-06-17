@@ -377,6 +377,7 @@ class Model(object):
             batch_loss = loss
             batch_ppl = ppl
 
+            # calculate gradient and apply
             # TODO ensure persona encoder variables have a gradient when it is re-enabled.
             variables = (
                     self.persona_encoder.variables 
@@ -483,7 +484,8 @@ class Model(object):
                     model_text = tf.convert_to_tensor(" ".join(model_words))
                     tf.contrib.summary.generic('model_response', model_text, metadata=text_meta)
 
-                    # histograms
+                    # model histograms
+                    # encoder
                     def record_histograms(cells, name):
                         for i in range(len(cells)):
                             cell = cells[i]
@@ -494,6 +496,8 @@ class Model(object):
                     # TODO re-enable persona encoder histogram
                     #record_histograms(self.persona_encoder.cells, "PersonaEncoder")
                     record_histograms(self.encoder.cells, "Encoder")
+
+                    tf.contrib.summary.histogram("encoder_final_hidden", enc_hidden)
 
                     ## decoder histograms
                     """
