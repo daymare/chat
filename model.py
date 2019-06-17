@@ -219,7 +219,7 @@ class Model(object):
                 input_dim=self.config.vocab_size,
                 output_dim=self.config.embedding_dim,
                 weights=word2vec,
-                trainable=False)
+                trainable=True)
 
         persona_encoder_sizes = [int(s_val) for s_val in config.persona_encoder_sizes]
         encoder_sizes = [int(s_val) for s_val in config.encoder_sizes]
@@ -251,6 +251,7 @@ class Model(object):
         checkpoint_dir = config.checkpoint_dir
         checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
         self.checkpoint = tf.train.Checkpoint(
+                embedding=embedding,
                 optimizer=optimizer,
                 persona_encoder=self.persona_encoder,
                 encoder=self.encoder,
