@@ -1,4 +1,6 @@
 import random
+import sys
+import copy
 import numpy as np
 import tensorflow as tf
 
@@ -100,7 +102,7 @@ def get_personas(dataset, max_sentence_len, max_conversation_len, max_persona_se
 
 
 def get_full_sample(dataset, max_sentence_len, max_conversation_len,
-        max_conversation_words, max_persona_sentences):
+        max_conversation_words, max_persona_sentences, word2id):
     """ get a full sample from the dataset at random
 
     input:
@@ -121,6 +123,7 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
     """
 
     # choose a random chat
+    # TODO modify to sample without replacement
     chat = dataset[random.randint(0, len(dataset)-1)]
 
     # load up the persona information
@@ -133,8 +136,8 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
     index = random.randint(0, len(chat.chat)-1)
 
     # load the previous conversation
-    conversation = []
-    conversation_len = 0
+    conversation = [word2id['<start>']]
+    conversation_len = 1
 
     for i in range(0, index):
         exchange = chat.chat[i]
@@ -142,25 +145,30 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
         # partner sentence
         for word in exchange[0]:
             conversation.append(word)
-        conversation.append(0) # append id for "<pad>"
+        conversation.append(word2id['<pad>'])
         conversation_len += len(exchange[0]) + 1
 
         # agent sentence
         for word in exchange[1]:
             conversation.append(word)
-        conversation.append(0) # append id for "<pad>"
+        conversation.append(word2id['<pad>'])
         conversation_len += len(exchange[1]) + 1
+
 
     # load the response
     exchange = chat.chat[index]
 
     for word in exchange[0]:
         conversation.append(word)
-    conversation.append(0) # append "<pad>"
+    conversation.append(word2id['<pad>'])
     conversation_len += len(exchange[0]) + 1
 
-    response = exchange[1]
-    response_len = len(exchange[1])
+    conversation.append(word2id['<end>'])
+    conversation_len += 1
+
+    response = copy.deepcopy(exchange[1])
+    response.append(word2id['<end>'])
+    response_len = len(exchange[1]) + 1
 
     # convert everything to np arrays
     for i in range(len(persona)):
@@ -178,6 +186,7 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
 
     conversation = sentence_to_np(conversation, 
             max_conversation_words)
+
     response = sentence_to_np(response, max_sentence_len)
 
     return persona, conversation, response, persona_lens, \
@@ -291,7 +300,7 @@ def get_eval_iterator(dataset, max_sentence_len,
 
 def get_training_batch_full(dataset, batch_size, max_sentence_len,
         max_conversation_len, max_conversation_words, 
-        max_persona_sentences):
+        max_persona_sentences, word2id):
     """ build a batch of training data. 
 
     get batch size worth of conversations with responses and personas
@@ -328,7 +337,8 @@ def get_training_batch_full(dataset, batch_size, max_sentence_len,
                         max_sentence_len, 
                         max_conversation_len,
                         max_conversation_words,
-                        max_persona_sentences)
+                        max_persona_sentences,
+                        word2id)
 
         personas.append(persona)
         sentences.append(conversation)
@@ -460,10 +470,6 @@ def get_data_info(data, save_fname='./data/data_info.txt',
             word2id - dictionary[string word : int id]
             max_sentence_len - number of words in the longest subtitle.
     """
-    # TODO get max conversation len and max persona len
-    # max conversation len should be the actual number of sentences not the
-    # number of exchanges
-
     max_sentence_len = 0
     max_conversation_len = 0
     max_conversation_words = 0
@@ -476,11 +482,20 @@ def get_data_info(data, save_fname='./data/data_info.txt',
         word2id[word] = word_id
         id2word.append(word)
 
-    word2id['<pad>'] = 0
+
+    word2id['<endpad>'] = 0
+    id2word.append('<endpad>')
+
+    word2id['<pad>'] = 1
     id2word.append('<pad>')
 
+    word2id['<start>'] = 2
+    id2word.append('<start>')
+
+    word2id['<end>'] = 3
+    id2word.append('<end>')
+
     # TODO load from savefile
-    # TODO build vocabulary?
 
     # extract metadata from data
     for chat in data:
@@ -531,6 +546,10 @@ def get_data_info(data, save_fname='./data/data_info.txt',
 
     # account for <pads> that will be added
     max_conversation_words += max_conversation_len
+
+    # account for <start> and <end>
+    max_sentence_len += 2
+    max_conversation_words += 2
 
     # TODO save to savefile
     id2word = np.array(id2word)

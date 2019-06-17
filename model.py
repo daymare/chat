@@ -348,7 +348,7 @@ class Model(object):
                 #persona_embeddings = self.persona_encoder(personas)
 
                 dec_input = tf.expand_dims([self.word2id[
-                    '<pad>']] * self.config.batch_size, 1)
+                    '<start>']] * self.config.batch_size, 1)
 
                 # Teacher forcing - feed the target as the next input
                 model_response = [] # model response on index 0 for summary
