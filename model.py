@@ -19,16 +19,14 @@ def lstm(units, name=None):
                 return_sequences=True,
                 return_state=True,
                 trainable=True,
-                name=name,
-                recurrent_initializer='orthogonal')
+                name=name)
     else:
         return tf.keras.layers.LSTM(
                 units,
                 return_sequences=True,
                 return_state=True,
                 trainable=True,
-                name=name,
-                recurrent_initializer='orthogonal')
+                name=name)
 
 
 def gru(units):
