@@ -155,8 +155,7 @@ class Decoder(tf.keras.Model):
         self.embedding = embedding
         self.cell = lstm(dec_units, "Decoder")
         self.projection_layer = tf.keras.layers.Dense(vocab_size,
-                kernel_initializer="glorot_normal",
-                bias_initializer="ones", name="projection")
+                name="projection")
 
         # attention stuff
         self.W1 = tf.keras.layers.Dense(self.dec_units, name="W1")
