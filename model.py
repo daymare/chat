@@ -69,7 +69,7 @@ class PersonaEncoder(tf.keras.Model):
 
         outputs = []
 
-        # reshape personas to fit the gru
+        # reshape personas to fit the lstm
         personas = np.transpose(personas, (1, 0, 2))
 
         for persona in personas:
@@ -91,7 +91,8 @@ class PersonaEncoder(tf.keras.Model):
 
         # reshape outputs to be what we expect
         outputs = tf.convert_to_tensor(outputs)
-        outputs = tf.transpose(outputs, [1, 0, 2])
+        print("outputs: {}".format(outputs.shape))
+        outputs = tf.transpose(outputs, [2, 0, 1, 3])
 
         return outputs
 
@@ -171,7 +172,6 @@ class Decoder(tf.keras.Model):
         hidden_with_time_axis = tf.expand_dims(hidden, 1)
 
         # score shape (batch size, max persona sentences, 1)
-        # TODO re enable persona encoder
         """
         W1_hidden = self.W1(hidden_with_time_axis)
         W2_persona = self.W2(persona_embeddings)
@@ -344,8 +344,8 @@ class Model(object):
                 dec_hidden = enc_hidden
 
                 # disable persona for testing
-                # TODO re enable persona encoder
                 #persona_embeddings = self.persona_encoder(personas)
+                persona_embeddings = None
 
                 dec_input = tf.expand_dims([self.word2id[
                     '<start>']] * self.config.batch_size, 1)
@@ -357,7 +357,7 @@ class Model(object):
                     # TODO re enable persona encoder
                     predictions, dec_hidden = self.decoder(
                             dec_input,
-                            None,
+                            persona_embeddings,
                             dec_hidden)
 
                     sample_loss, sample_ppl = \
@@ -493,21 +493,18 @@ class Model(object):
                             tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Kernel", kernel)
                             tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_ReccurentKernel", recurrent_kernel)
                             tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Bias", bias)
-                    # TODO re-enable persona encoder histogram
                     #record_histograms(self.persona_encoder.cells, "PersonaEncoder")
                     record_histograms(self.encoder.cells, "Encoder")
 
                     tf.contrib.summary.histogram("encoder_final_hidden", enc_hidden)
 
                     ## decoder histograms
+                    projection_kernel, projection_bias = self.decoder.projection_layer.variables
                     """
                     w1_kernel, w1_bias = self.decoder.W1.variables
                     w2_kernel, w2_bias = self.decoder.W2.variables
                     v_kernel, v_bias = self.decoder.V.variables
-                    """
-                    projection_kernel, projection_bias = self.decoder.projection_layer.variables
 
-                    """
                     tf.contrib.summary.histogram("decoder_w1_kernel", w1_kernel)
                     tf.contrib.summary.histogram("decoder_w1_bias", w1_bias)
                     tf.contrib.summary.histogram("decoder_w2_kernel", w2_kernel)
