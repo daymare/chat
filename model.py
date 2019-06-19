@@ -297,254 +297,264 @@ class Model(object):
         last_enc_hidden = None
 
         # train loop
-        for step in range(num_steps):
-            global_step.assign_add(1)
+        # TODO start saving and using global step here
+        step = 0
+        quit = False
+        while quit is False:
+        #for step in range(num_steps):
 
-            start = time.time()
+            # iterate through one epoch
+            for batch in get_batch_iterator(
+                train_data,
+                self.config.batch_size,
+                self.config.max_sentence_len,
+                self.config.max_conversation_words,
+                self.config.max_persona_len):
 
-            with tf.GradientTape() as tape:
-                hidden = self.encoder.initialize_hidden_state()
-                loss = 0.0
-                ppl = 0.0
+                global_step.assign_add(1)
+                step += 1
+                start = time.time()
 
-                # get training batch
-                personas, sentences, responses, persona_lens, \
-                        sentence_lens, response_lens = \
-                        get_training_batch_full(
-                            train_data, self.config.batch_size,
-                            self.config.max_sentence_len,
-                            self.config.max_conversation_len,
-                            self.config.max_conversation_words,
-                            self.config.max_persona_len,
-                            self.word2id)
+                with tf.GradientTape() as tape:
+                    hidden = self.encoder.initialize_hidden_state()
+                    loss = 0.0
+                    ppl = 0.0
 
-                tape.watch(sentences)
-                tape.watch(personas)
-                tape.watch(responses)
-                tape.watch(hidden)
+                    # split out batch
+                    personas, sentences, responses, persona_lens, \
+                        sentence_lens, response_lens = batch
 
-                _, enc_hidden = self.encoder(sentences, hidden)
+                    tape.watch(sentences)
+                    tape.watch(personas)
+                    tape.watch(responses)
+                    tape.watch(hidden)
 
-                # calculate cosine similarity between last two enc_hidden outputs
-                # this is to check that input is being processed meaningfully
-                if last_enc_hidden is not None:
-                    a = enc_hidden[1][0]
-                    b = last_enc_hidden[1][0]
-                    normalize_a = tf.nn.l2_normalize(a, 0)
-                    normalize_b = tf.nn.l2_normalize(b, 0)
-                    enc_hidden_cos_similarity = tf.reduce_sum(tf.multiply(normalize_a, normalize_b))
-                else:
-                    enc_hidden_cos_similarity = 0.0
-                last_enc_hidden = enc_hidden
+                    _, enc_hidden = self.encoder(sentences, hidden)
 
-                # note that enc_hidden must be the same dim as decoder units
-                dec_hidden = enc_hidden
+                    # calculate cosine similarity between last two enc_hidden outputs
+                    # this is to check that input is being processed meaningfully
+                    if last_enc_hidden is not None:
+                        a = enc_hidden[1][0]
+                        b = last_enc_hidden[1][0]
+                        normalize_a = tf.nn.l2_normalize(a, 0)
+                        normalize_b = tf.nn.l2_normalize(b, 0)
+                        enc_hidden_cos_similarity = tf.reduce_sum(tf.multiply(normalize_a, normalize_b))
+                    else:
+                        enc_hidden_cos_similarity = 0.0
+                    last_enc_hidden = enc_hidden
 
-                # disable persona for testing
-                #persona_embeddings = self.persona_encoder(personas)
-                persona_embeddings = None
+                    # note that enc_hidden must be the same dim as decoder units
+                    dec_hidden = enc_hidden
 
-                dec_input = tf.expand_dims([self.word2id[
-                    '<start>']] * self.config.batch_size, 1)
+                    # disable persona for testing
+                    #persona_embeddings = self.persona_encoder(personas)
+                    persona_embeddings = None
 
-                # Teacher forcing - feed the target as the next input
-                model_response = [] # model response on index 0 for summary
-                for t in range(0, len(responses[0])):
-                    # passing enc_output to the decoder
-                    # TODO re enable persona encoder
-                    predictions, dec_hidden = self.decoder(
-                            dec_input,
-                            persona_embeddings,
-                            dec_hidden)
+                    dec_input = tf.expand_dims([self.word2id[
+                        '<start>']] * self.config.batch_size, 1)
 
-                    sample_loss, sample_ppl = \
-                        self.loss_function(responses[:, t], predictions)
+                    # Teacher forcing - feed the target as the next input
+                    model_response = [] # model response on index 0 for summary
+                    for t in range(0, len(responses[0])):
+                        # passing enc_output to the decoder
+                        # TODO re enable persona encoder
+                        predictions, dec_hidden = self.decoder(
+                                dec_input,
+                                persona_embeddings,
+                                dec_hidden)
 
-                    # get model response
-                    predicted_id = tf.argmax(predictions[0]).numpy()
-                    model_response.append(predicted_id)
+                        sample_loss, sample_ppl = \
+                            self.loss_function(responses[:, t], predictions)
 
-                    loss += sample_loss
-                    ppl += sample_ppl
+                        # get model response
+                        predicted_id = tf.argmax(predictions[0]).numpy()
+                        model_response.append(predicted_id)
 
-                    # using teacher forcing
-                    dec_input = tf.expand_dims(responses[:, t], 1)
+                        loss += sample_loss
+                        ppl += sample_ppl
+
+                        # using teacher forcing
+                        dec_input = tf.expand_dims(responses[:, t], 1)
 
 
-            batch_loss = loss
-            batch_ppl = ppl
+                batch_loss = loss
+                batch_ppl = ppl
 
-            # calculate gradient and apply
-            # TODO ensure persona encoder variables have a gradient when it is re-enabled.
-            variables = (
-                    self.persona_encoder.variables 
-                    + self.encoder.variables 
-                    + self.decoder.variables
-                    )
-            gradients = tape.gradient(loss, variables)
+                # calculate gradient and apply
+                # TODO ensure persona encoder variables have a gradient when it is re-enabled.
+                variables = (
+                        self.persona_encoder.variables 
+                        + self.encoder.variables 
+                        + self.decoder.variables
+                        )
+                gradients = tape.gradient(loss, variables)
 
-            gradients, _ = tf.clip_by_global_norm(gradients,
-                    self.config.max_gradient_norm)
+                gradients, _ = tf.clip_by_global_norm(gradients,
+                        self.config.max_gradient_norm)
 
-            self.optimizer.apply_gradients(zip(gradients, variables))
+                self.optimizer.apply_gradients(zip(gradients, variables))
 
-            # record history for parameter search
-            if parameter_search == True:
-                update_history(loss_history, batch_loss)
-                update_history(ppl_history, batch_ppl)
+                # record history for parameter search
+                if parameter_search == True:
+                    update_history(loss_history, batch_loss)
+                    update_history(ppl_history, batch_ppl)
 
-            # record summaries
-            if self.config.save_summary == True:
-                # record eval loss
-                # TODO re-enable eval after validation
-                if step % self.config.eval_frequency == 0 and False:
-                    with (tf.contrib.summary.
-                            always_record_summaries()):
-                        # run eval
-                        print('Running Eval')
-                        eval_loss, eval_ppl = self.eval(test_data)
+                # record summaries
+                if self.config.save_summary == True:
+                    # record eval loss
+                    # TODO re-enable eval after validation
+                    if step % self.config.eval_frequency == 0 and False:
+                        with (tf.contrib.summary.
+                                always_record_summaries()):
+                            # run eval
+                            print('Running Eval')
+                            eval_loss, eval_ppl = self.eval(test_data)
 
-                        # record eval performance
-                        print('Eval loss: {:.4f}'.format(eval_loss.numpy()))
-                        print('Eval perplexity: {:.4f}'.format(eval_ppl.numpy()))
-                        tf.contrib.summary.scalar('eval_loss', eval_loss)
-                        tf.contrib.summary.scalar('eval_ppl', eval_ppl)
+                            # record eval performance
+                            print('Eval loss: {:.4f}'.format(eval_loss.numpy()))
+                            print('Eval perplexity: {:.4f}'.format(eval_ppl.numpy()))
+                            tf.contrib.summary.scalar('eval_loss', eval_loss)
+                            tf.contrib.summary.scalar('eval_ppl', eval_ppl)
 
-                # record all other summaries
-                with (tf.contrib.summary.record_summaries_every_n_global_steps(
-                            self.config.save_frequency)):
-                    # loss and perplexity
-                    tf.contrib.summary.scalar('loss', batch_loss)
-                    tf.contrib.summary.scalar('perplexity', batch_ppl)
+                    # record all other summaries
+                    with (tf.contrib.summary.record_summaries_every_n_global_steps(
+                                self.config.save_frequency)):
+                        # loss and perplexity
+                        tf.contrib.summary.scalar('loss', batch_loss)
+                        tf.contrib.summary.scalar('perplexity', batch_ppl)
 
-                    # enc hidden norm
-                    tf.contrib.summary.scalar('enc_hidden_0_norm', tf.norm(enc_hidden[0]))
-                    tf.contrib.summary.scalar('enc_hidden_1_norm', tf.norm(enc_hidden[1]))
+                        # enc hidden norm
+                        tf.contrib.summary.scalar('enc_hidden_0_norm', tf.norm(enc_hidden[0]))
+                        tf.contrib.summary.scalar('enc_hidden_1_norm', tf.norm(enc_hidden[1]))
 
-                    # enc hidden cosine similarity
-                    tf.contrib.summary.scalar('enc_hidden_cos_sim', enc_hidden_cos_similarity)
+                        # enc hidden cosine similarity
+                        tf.contrib.summary.scalar('enc_hidden_cos_sim', enc_hidden_cos_similarity)
 
-                    # text output
-                    text_meta = tf.SummaryMetadata()
-                    text_meta.plugin_data.plugin_name = "text"
+                        # text output
+                        text_meta = tf.SummaryMetadata()
+                        text_meta.plugin_data.plugin_name = "text"
 
-                    # always take index 0 as our example output
-                    ## persona
-                    # personas shape: (batch size, max_persona_sentences, max_persona_sentence_len)
-                    persona = personas[0] # (max_persona_sentences, max_persona_sentence_len)
-                    persona_words = []
-                    for sentence in persona:
-                        for word in sentence:
+                        # always take index 0 as our example output
+                        ## persona
+                        # personas shape: (batch size, max_persona_sentences, max_persona_sentence_len)
+                        persona = personas[0] # (max_persona_sentences, max_persona_sentence_len)
+                        persona_words = []
+                        for sentence in persona:
+                            for word in sentence:
+                                if word.numpy() == 0:
+                                    break
+                                else:
+                                    persona_words.append(self.id2word[word])
+                        persona_text = tf.convert_to_tensor(" ".join(persona_words))
+                        tf.contrib.summary.generic('persona', persona_text, metadata=text_meta)
+
+                        ## sentence
+                        # sentences shape: (batch_size, max_conversation_words)
+                        conversation = sentences[0]
+                        conversation_words = []
+                        for i in range(len(conversation)):
+                            word = conversation[i]
+                            next_word = conversation[i+1]
+
+                            if i == len(conversation) - 2:
+                                break
+                            elif word.numpy() == 0 and next_word.numpy() == 0:
+                                break
+                            else:
+                                conversation_words.append(self.id2word[word])
+                        conversation_text = tf.convert_to_tensor(" ".join(conversation_words))
+                        tf.contrib.summary.generic('conversation', conversation_text, metadata=text_meta)
+
+                        ## response
+                        # response shape: (batch_size, max_sentence_len)
+                        response = responses[0]
+                        response_words = []
+                        for word in response:
                             if word.numpy() == 0:
                                 break
                             else:
-                                persona_words.append(self.id2word[word])
-                    persona_text = tf.convert_to_tensor(" ".join(persona_words))
-                    tf.contrib.summary.generic('persona', persona_text, metadata=text_meta)
+                                response_words.append(self.id2word[word])
+                        response_text = tf.convert_to_tensor(" ".join(response_words))
+                        tf.contrib.summary.generic('response', response_text, metadata=text_meta)
 
-                    ## sentence
-                    # sentences shape: (batch_size, max_conversation_words)
-                    conversation = sentences[0]
-                    conversation_words = []
-                    for i in range(len(conversation)):
-                        word = conversation[i]
-                        next_word = conversation[i+1]
+                        ## model response
+                        model_words = []
+                        for word in model_response:
+                            if word == 0:
+                                break
+                            else:
+                                model_words.append(self.id2word[word])
+                        model_text = tf.convert_to_tensor(" ".join(model_words))
+                        tf.contrib.summary.generic('model_response', model_text, metadata=text_meta)
 
-                        if i == len(conversation) - 2:
-                            break
-                        elif word.numpy() == 0 and next_word.numpy() == 0:
-                            break
-                        else:
-                            conversation_words.append(self.id2word[word])
-                    conversation_text = tf.convert_to_tensor(" ".join(conversation_words))
-                    tf.contrib.summary.generic('conversation', conversation_text, metadata=text_meta)
+                        # model histograms
+                        # encoder
+                        def record_histograms(cells, name):
+                            for i in range(len(cells)):
+                                cell = cells[i]
+                                kernel, recurrent_kernel, bias = cell.variables
+                                tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Kernel", kernel)
+                                tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_ReccurentKernel", recurrent_kernel)
+                                tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Bias", bias)
+                        #record_histograms(self.persona_encoder.cells, "PersonaEncoder")
+                        record_histograms(self.encoder.cells, "Encoder")
 
-                    ## response
-                    # response shape: (batch_size, max_sentence_len)
-                    response = responses[0]
-                    response_words = []
-                    for word in response:
-                        if word.numpy() == 0:
-                            break
-                        else:
-                            response_words.append(self.id2word[word])
-                    response_text = tf.convert_to_tensor(" ".join(response_words))
-                    tf.contrib.summary.generic('response', response_text, metadata=text_meta)
+                        tf.contrib.summary.histogram("encoder_final_hidden", enc_hidden)
 
-                    ## model response
-                    model_words = []
-                    for word in model_response:
-                        if word == 0:
-                            break
-                        else:
-                            model_words.append(self.id2word[word])
-                    model_text = tf.convert_to_tensor(" ".join(model_words))
-                    tf.contrib.summary.generic('model_response', model_text, metadata=text_meta)
+                        ## decoder histograms
+                        projection_kernel, projection_bias = self.decoder.projection_layer.variables
+                        """
+                        w1_kernel, w1_bias = self.decoder.W1.variables
+                        w2_kernel, w2_bias = self.decoder.W2.variables
+                        v_kernel, v_bias = self.decoder.V.variables
 
-                    # model histograms
-                    # encoder
-                    def record_histograms(cells, name):
-                        for i in range(len(cells)):
-                            cell = cells[i]
-                            kernel, recurrent_kernel, bias = cell.variables
-                            tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Kernel", kernel)
-                            tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_ReccurentKernel", recurrent_kernel)
-                            tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Bias", bias)
-                    #record_histograms(self.persona_encoder.cells, "PersonaEncoder")
-                    record_histograms(self.encoder.cells, "Encoder")
+                        tf.contrib.summary.histogram("decoder_w1_kernel", w1_kernel)
+                        tf.contrib.summary.histogram("decoder_w1_bias", w1_bias)
+                        tf.contrib.summary.histogram("decoder_w2_kernel", w2_kernel)
+                        tf.contrib.summary.histogram("decoder_w2_bias", w2_bias)
+                        tf.contrib.summary.histogram("decoder_v_kernel", v_kernel)
+                        tf.contrib.summary.histogram("decoder_v_bias", v_bias)
+                        """
+                        tf.contrib.summary.histogram("decoder_projection_kernel", projection_kernel)
+                        tf.contrib.summary.histogram("decoder_projection_bias", projection_bias)
 
-                    tf.contrib.summary.histogram("encoder_final_hidden", enc_hidden)
+                        kernel, recurrent_kernel, bias = self.decoder.cell.variables
+                        tf.contrib.summary.histogram("decoder_kernel", kernel)
+                        tf.contrib.summary.histogram("decoder_recurrentkernel", recurrent_kernel)
+                        tf.contrib.summary.histogram("decoder_bias", bias)
 
-                    ## decoder histograms
-                    projection_kernel, projection_bias = self.decoder.projection_layer.variables
-                    """
-                    w1_kernel, w1_bias = self.decoder.W1.variables
-                    w2_kernel, w2_bias = self.decoder.W2.variables
-                    v_kernel, v_bias = self.decoder.V.variables
+                        # gradient histograms
+                        for i in range(len(variables)):
+                            variable = variables[i]
+                            gradient = gradients[i]
 
-                    tf.contrib.summary.histogram("decoder_w1_kernel", w1_kernel)
-                    tf.contrib.summary.histogram("decoder_w1_bias", w1_bias)
-                    tf.contrib.summary.histogram("decoder_w2_kernel", w2_kernel)
-                    tf.contrib.summary.histogram("decoder_w2_bias", w2_bias)
-                    tf.contrib.summary.histogram("decoder_v_kernel", v_kernel)
-                    tf.contrib.summary.histogram("decoder_v_bias", v_bias)
-                    """
-                    tf.contrib.summary.histogram("decoder_projection_kernel", projection_kernel)
-                    tf.contrib.summary.histogram("decoder_projection_bias", projection_bias)
+                            try:
+                                tf.contrib.summary.histogram("{}_gradient".format(variable.name[:-2]), gradient)
+                                tf.contrib.summary.scalar("{}_gradient_mag".format(variable.name[:-2]), tf.norm(gradient))
+                            except Exception as e:
+                                pass
 
-                    kernel, recurrent_kernel, bias = self.decoder.cell.variables
-                    tf.contrib.summary.histogram("decoder_kernel", kernel)
-                    tf.contrib.summary.histogram("decoder_recurrentkernel", recurrent_kernel)
-                    tf.contrib.summary.histogram("decoder_bias", bias)
+                # print out progress
+                print('\n')
+                print('Batch {}'.format(step + 1))
+                print('Memory usage (MB): {}'.format(tf.contrib.memory_stats.BytesInUse() / 1000000))
+                print('Max memory usage (MB): {}'.format(tf.contrib.memory_stats.MaxBytesInUse() / 1000000))
+                print('Loss: {:.4f}'.format(batch_loss.numpy()))
+                print('Perplexity: {:.4f}'.format(batch_ppl.numpy()))
+                print('Time taken for 1 step {} sec'.format(
+                    time.time() - start), flush=True)
 
-                    # gradient histograms
-                    for i in range(len(variables)):
-                        variable = variables[i]
-                        gradient = gradients[i]
+                # save the model every x batches
+                if ((step + 1) % self.config.model_save_interval == 0
+                        and self.config.save_model == True):
+                    logging.debug('Saving model to: {}'.format(
+                        self.config.checkpoint_dir))
+                    self.checkpoint.save(
+                        file_prefix = self.config.checkpoint_dir)
 
-                        try:
-                            tf.contrib.summary.histogram("{}_gradient".format(variable.name[:-2]), gradient)
-                            tf.contrib.summary.scalar("{}_gradient_mag".format(variable.name[:-2]), tf.norm(gradient))
-                        except Exception as e:
-                            pass
-
-            # print out progress
-            print('\n')
-            print('Batch {}'.format(step + 1))
-            print('Memory usage (MB): {}'.format(tf.contrib.memory_stats.BytesInUse() / 1000000))
-            print('Max memory usage (MB): {}'.format(tf.contrib.memory_stats.MaxBytesInUse() / 1000000))
-            print('Loss: {:.4f}'.format(batch_loss.numpy()))
-            print('Perplexity: {:.4f}'.format(batch_ppl.numpy()))
-            print('Time taken for 1 step {} sec'.format(
-                time.time() - start), flush=True)
-
-            # save the model every x batches
-            if ((step + 1) % self.config.model_save_interval == 0
-                    and self.config.save_model == True):
-                logging.debug('Saving model to: {}'.format(
-                    self.config.checkpoint_dir))
-                self.checkpoint.save(
-                    file_prefix = self.config.checkpoint_dir)
+                # quit if we have done the correct number of steps
+                if step >= num_steps:
+                    quit = True
 
         if parameter_search == True:
             recent_avg_loss = sum(loss_history) / len(loss_history)
@@ -563,7 +573,6 @@ class Model(object):
                 test_data,
                 self.config.batch_size,
                 self.config.max_sentence_len,
-                self.config.max_conversation_len,
                 self.config.max_conversation_words,
                 self.config.max_persona_len):
             num_samples += self.config.batch_size
@@ -584,7 +593,7 @@ class Model(object):
                     * self.config.batch_size, 1)
 
             # run decoder with teacher forcing
-            for t in range(1, len(responses[0])):
+            for t in range(0, len(responses[0])):
                 predictions, dec_hidden = self.decoder(
                         dec_input,
                         persona_embeddings,
