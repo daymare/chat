@@ -10,7 +10,7 @@ import tensorflow as tf
 import numpy as np
 
 from util.data_util import get_training_batch_full
-from util.data_util import get_eval_batch_iterator
+from util.data_util import get_batch_iterator
 
 
 def lstm(units, name=None):
@@ -352,7 +352,7 @@ class Model(object):
 
                 # Teacher forcing - feed the target as the next input
                 model_response = [] # model response on index 0 for summary
-                for t in range(1, len(responses[0])):
+                for t in range(0, len(responses[0])):
                     # passing enc_output to the decoder
                     # TODO re enable persona encoder
                     predictions, dec_hidden = self.decoder(
@@ -562,7 +562,7 @@ class Model(object):
         total_ppl = 0.0 # perplexity
         num_samples = 0
 
-        for batch in get_eval_batch_iterator(
+        for batch in get_batch_iterator(
                 test_data,
                 self.config.batch_size,
                 self.config.max_sentence_len,

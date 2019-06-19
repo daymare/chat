@@ -192,7 +192,7 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
     return persona, conversation, response, persona_lens, \
         conversation_len, response_len
 
-def get_eval_batch_iterator(dataset, batch_size, max_sentence_len,
+def get_batch_iterator(dataset, batch_size, max_sentence_len,
         max_conversation_len, max_conversation_words,
         max_persona_sentences):
     """ get an iterator over consecutive batches in the eval set
@@ -234,10 +234,18 @@ def get_eval_batch_iterator(dataset, batch_size, max_sentence_len,
             sentence_lens = np.array(sentence_lens)
             response_lens = np.array(response_lens)
 
+            # convert to tensors
+            personas = tf.constant(personas)
+            sentences = tf.constant(sentences)
+            responses = tf.constant(responses)
+            persona_lens = tf.constant(persona_lens)
+            sentence_lens = tf.constant(sentence_lens)
+            response_lens = tf.constant(response_lens)
+
             yield personas, sentences, responses, \
                     persona_lens, sentence_lens, response_lens
 
-def get_eval_iterator(dataset, max_sentence_len,
+def get_sample_iterator(dataset, max_sentence_len,
         max_conversation_len, max_conversation_words,
         max_persona_sentences):
     """ get an iterator over consecutive samples in the eval set.
