@@ -1,8 +1,14 @@
-
+import random
 
 from util.load_util import Chat
 
+
 def sentence_to_np(sentence, max_sentence_len):
+    """ convert sentence to 1D np array of size max_sentence_len
+
+    if sentence length is smaller than max_sentence_len it will be padded
+    with zeros.
+    """
     np_sentence = np.zeros(max_sentence_len, dtype=np.int32)
 
     for i in range(len(sentence)):
@@ -15,26 +21,31 @@ def get_personas(dataset, max_sentence_len, max_conversation_len, max_persona_se
     """ get two random personas from the dataset
 
     could be the same persona.
+
+    Used to grab two personas for inference
     """
-    persona1, _, _, _, _, _ = get_full_sample(
+    persona1, _, _, _, _, _ = get_sample(
             dataset, max_sentence_len, max_conversation_len, max_conversation_words, max_persona_sentences)
 
-    persona2, _, _, _, _, _ = get_full_sample(
+    persona2, _, _, _, _, _ = get_sample(
             dataset, max_sentence_len, max_conversation_len, max_conversation_words, max_persona_sentences)
 
     return persona1, persona2
 
 
-def get_full_sample(dataset, max_sentence_len, max_conversation_len,
-        max_conversation_words, max_persona_sentences, word2id):
-    """ get a full sample from the dataset at random
-
+def get_sample(dataset, max_sentence_len,
+        max_conversation_words, max_persona_sentences, word2id,
+        chat_index=None, sample_index=None):
+    """ get a full sample from the dataset
     input:
-        dataset to sample from
-        max sentence len to normalize to
-        max conversation len to normalize to
-        max number of words in a conversation to normalize to
-        max persona sentences to normalize to
+        dataset - dataset to sample from
+        max_sentence_len - max sentence len to normalize to
+        max_conversation_len - max number of sentences in a conversation to normalize to
+        max_conversation_words - max number of words in a conversation to normalize to
+        max_persona_sentences - max persona sentences to normalize to
+        chat_index - index of chat to use. If None then pick random chat
+        sample_index - index of conversation turn to use within the selected chat
+                       if None then pick random turn
     output:
         persona - List[nparray[word]] - list of persona sentences
         conversation - nparray[word] - previous conversation sentences.
@@ -46,9 +57,12 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
         response_len - int - length of the response sentence
     """
 
-    # choose a random chat
-    # TODO modify to sample without replacement
-    chat = dataset[random.randint(0, len(dataset)-1)]
+    if chat_index is None:
+        # choose a random chat
+        chat = dataset[random.randint(0, len(dataset)-1)]
+    else:
+        # use the selected chat
+        chat = dataset[chat_index]
 
     # load up the persona information
     persona = chat.your_persona
@@ -56,8 +70,12 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
     for persona_sentence in persona:
         persona_lens.append(len(persona_sentence))
 
-    # choose a random piece of the conversation
-    index = random.randint(0, len(chat.chat)-1)
+    if sample_index is None:
+        # choose a random piece of the conversation
+        index = random.randint(0, len(chat.chat)-1)
+    else:
+        # use the selected piece of the conversation
+        index = sample_index
 
     # load the previous conversation
     conversation = [word2id['<start>']]
@@ -116,8 +134,8 @@ def get_full_sample(dataset, max_sentence_len, max_conversation_len,
     return persona, conversation, response, persona_lens, \
         conversation_len, response_len
 
-def get_eval_batch_iterator(dataset, batch_size, max_sentence_len,
-        max_conversation_len, max_conversation_words,
+def get_batch_iterator(dataset, batch_size, max_sentence_len,
+        max_conversation_words,
         max_persona_sentences):
     """ get an iterator over consecutive batches in the eval set
 
@@ -133,7 +151,6 @@ def get_eval_batch_iterator(dataset, batch_size, max_sentence_len,
     for sample in get_eval_sample_iterator(
             dataset, 
             max_sentence_len,
-            max_conversation_len, 
             max_conversation_words,
             max_persona_sentences):
 
@@ -169,68 +186,52 @@ def get_eval_batch_iterator(dataset, batch_size, max_sentence_len,
             yield personas, sentences, responses, \
                     persona_lens, sentence_lens, response_lens
 
-def get_eval_sample_iterator(dataset, max_sentence_len,
-        max_conversation_len, max_conversation_words,
-        max_persona_sentences):
-    """ get an iterator over consecutive samples in the eval set.
-    """
-    for chat in dataset:
-        # load up persona information
-        persona = chat.your_persona
-        persona_lens = []
-        for persona_sentence in persona:
-            persona_lens.append(len(persona_sentence))
 
-        # convert persona to np arrays
-        for i in range(len(persona)):
-            sentence = persona[i]
-            new_sentence = sentence_to_np(sentence, max_sentence_len)
-            persona[i] = new_sentence
-
-        # pad persona sentences
-        while len(persona) < max_persona_sentences:
-            pad_sentence = np.zeros(max_sentence_len, dtype=np.int32)
-            persona.append(pad_sentence)
-            persona_lens.append(0)
-        persona_lens = np.array(persona_lens, dtype=np.int32)
-        np_persona = np.array(persona, dtype=np.int32)
+def get_sample_iterator(dataset, max_sentence_len,
+        max_conversation_words, max_persona_sentences, word2id):
+    class ChatMarker:
+        def __init__(self, chat, chat_index):
+            self.free = []
+            self.chat_index = chat_index
+            for i in range(len(chat.chat)):
+                self.free.append(i)
     
-        # init the previous conversation
-        conversation = []
-        conversation_len = 0
+        def get_next_index(self):
+            free_index = random.rand_int(0, len(self.free)-1)
+            sample_index = self.free.pop(free_index)
+            return sample_index
+        
+        def is_empty(self):
+            return len(self.free) == 0
+    
+    # set up chat markers
+    free_chats = []
+    for i in range(len(dataset)):
+        chat = dataset[i]
+        current_marker = ChatMarker(chat)
+        free_chats.append(current_marker)
+    
+    # start yielding samples
+    while len(free_chats) > 0:
+        # choose a chat
+        free_index = random.rand_int(0, len(free_chats)-1)
+        chat_marker = free_chats[free_index]
 
-        for i in range(0, len(chat.chat)):
-            exchange = chat.chat[i]
+        chat_index = chat_marker.chat_index
+        sample_index = chat_marker.get_next_index()
 
-            # add partner sentence to conversation
-            for word in exchange[0]:
-                conversation.append(word)
-            conversation.append(0) # append id for "<pad>"
-            conversation_len += len(exchange[0]) + 1
+        # remove chat if there are no samples remaining
+        if chat_index.is_empty() == True:
+            del free_chats[free_index]
 
-            # convert conversation
-            np_conversation = sentence_to_np(conversation,
-                    max_conversation_words)
-
-            # get response
-            response = exchange[1]
-            response_len = len(exchange[1])
-
-            # convert response
-            np_response = sentence_to_np(response, max_sentence_len)
-
-            # yield
-            yield np_persona, np_conversation, np_response, persona_lens, \
-                    conversation_len, response_len
-
-            # add agent sentence to conversation
-            for word in exchange[1]:
-                conversation.append(word)
-            conversation.append(0) # append id for "<pad>"
-            conversation_len += len(exchange[1]) + 1
+        yield get_sample(dataset, max_sentence_len, max_conversation_len,
+                max_persona_sentences, word2id,
+                chat_index, smaple_index)
 
 
-def get_training_batch_full(dataset, batch_size, max_sentence_len,
+#### CUT LINE
+
+def get_training_batch(dataset, batch_size, max_sentence_len,
         max_conversation_len, max_conversation_words, 
         max_persona_sentences, word2id):
     """ build a batch of training data. 
@@ -297,3 +298,63 @@ def get_training_batch_full(dataset, batch_size, max_sentence_len,
 
     return personas, sentences, responses, persona_lens, sentence_lens, \
             response_lens
+
+def get_eval_sample_iterator(dataset, max_sentence_len,
+        max_conversation_len, max_conversation_words,
+        max_persona_sentences):
+    """ get an iterator over consecutive samples in the eval set.
+    """
+    for chat in dataset:
+        # load up persona information
+        persona = chat.your_persona
+        persona_lens = []
+        for persona_sentence in persona:
+            persona_lens.append(len(persona_sentence))
+
+        # convert persona to np arrays
+        for i in range(len(persona)):
+            sentence = persona[i]
+            new_sentence = sentence_to_np(sentence, max_sentence_len)
+            persona[i] = new_sentence
+
+        # pad persona sentences
+        while len(persona) < max_persona_sentences:
+            pad_sentence = np.zeros(max_sentence_len, dtype=np.int32)
+            persona.append(pad_sentence)
+            persona_lens.append(0)
+        persona_lens = np.array(persona_lens, dtype=np.int32)
+        np_persona = np.array(persona, dtype=np.int32)
+    
+        # init the previous conversation
+        conversation = []
+        conversation_len = 0
+
+        for i in range(0, len(chat.chat)):
+            exchange = chat.chat[i]
+
+            # add partner sentence to conversation
+            for word in exchange[0]:
+                conversation.append(word)
+            conversation.append(0) # append id for "<pad>"
+            conversation_len += len(exchange[0]) + 1
+
+            # convert conversation
+            np_conversation = sentence_to_np(conversation,
+                    max_conversation_words)
+
+            # get response
+            response = exchange[1]
+            response_len = len(exchange[1])
+
+            # convert response
+            np_response = sentence_to_np(response, max_sentence_len)
+
+            # yield
+            yield np_persona, np_conversation, np_response, persona_lens, \
+                    conversation_len, response_len
+
+            # add agent sentence to conversation
+            for word in exchange[1]:
+                conversation.append(word)
+            conversation.append(0) # append id for "<pad>"
+            conversation_len += len(exchange[1]) + 1
