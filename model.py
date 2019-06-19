@@ -337,9 +337,6 @@ class Model(object):
                     enc_hidden_cos_similarity = 0.0
                 last_enc_hidden = enc_hidden
 
-                # TODO consider re-enabling enc-dec layer
-                #dec_hidden = self.enc_dec_layer(enc_hidden)
-
                 # note that enc_hidden must be the same dim as decoder units
                 dec_hidden = enc_hidden
 
