@@ -318,9 +318,6 @@ class Model(object):
                             self.config.max_persona_len,
                             self.word2id)
 
-                personas = tf.zeros_like(personas)
-                sentences = tf.zeros_like(sentences)
-
                 tape.watch(sentences)
                 tape.watch(personas)
                 tape.watch(responses)
