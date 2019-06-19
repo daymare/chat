@@ -38,26 +38,26 @@ tf.app.flags.DEFINE_string('embedding_fname',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_list('encoder_sizes', '600, 400, 200',
+tf.app.flags.DEFINE_list('encoder_sizes', '300',
         'size of each layer in the encoder')
-tf.app.flags.DEFINE_list('persona_encoder_sizes', '600, 400, 200',
+tf.app.flags.DEFINE_list('persona_encoder_sizes', '300',
         'size of each layer in the persona encoder')
 tf.app.flags.DEFINE_integer('decoder_units', 
-        400, 'size of the hidden layer in the decoder')
+        300, 'size of the hidden layer in the decoder')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
 tf.app.flags.DEFINE_float('learning_rate',
-        0.00008, 'learning rate during training')
+        3*10**-4, 'learning rate during training')
 tf.app.flags.DEFINE_integer('train_steps',
-        100, 'number of training steps to train for')
+        100000, 'number of training steps to train for')
 tf.app.flags.DEFINE_integer('batch_size',
-        32, 'batch size')
+        16, 'batch size')
 
 # training flags
 tf.app.flags.DEFINE_boolean('save_summary',
         True, 'controls whether summaries are saved during training.')
 tf.app.flags.DEFINE_integer('save_frequency',
-        1, 'frequency of summary saves')
+        100, 'frequency of summary saves')
 tf.app.flags.DEFINE_integer('eval_frequency',
         100, 'frequency of eval runs')
 tf.app.flags.DEFINE_boolean('print_training',
@@ -80,7 +80,7 @@ tf.app.flags.DEFINE_boolean('debug',
 tf.app.flags.DEFINE_boolean('run_inference',
         False, 'run inference instead of training?')
 tf.app.flags.DEFINE_boolean('run_data_viz',
-        True, 'run dataset visualization instead of anything else')
+        False, 'run dataset visualization instead of anything else')
 tf.app.flags.DEFINE_boolean('parameter_search',
         False, 'run parameter search instead of training?')
 
@@ -110,6 +110,8 @@ logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 tf.enable_eager_execution()
+tf.set_random_seed(1) # for testing, remove after system has been verified
+random.seed(1) # for testing, remove after the system has been verified
 
 
 def main(_):
@@ -140,6 +142,7 @@ def main(_):
     print('loading word vectors')
     word2vec = load_word_embeddings(config.embedding_fname,
             config.embedding_dim, word2id)
+
     logging.debug('word2vec type: %s' % type(word2vec))
     logging.debug('word2vec shape: %s' % str(word2vec.shape))
 
@@ -155,9 +158,9 @@ def main(_):
     train_size = int(len(dataset) * 0.9)
 
     #train_data = dataset[:train_size]
-    #train_data = dataset[:1]
-    train_data = dataset
-    test_data = dataset[train_size:] 
+    train_data = dataset[:1]
+    #train_data = dataset
+    test_data = dataset[train_size:]
 
     # setup debugger
     if config.debug == True:
