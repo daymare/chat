@@ -510,18 +510,18 @@ class Model(object):
 
                         ## decoder histograms
                         projection_kernel, projection_bias = self.decoder.projection_layer.variables
-                        """
-                        w1_kernel, w1_bias = self.decoder.W1.variables
-                        w2_kernel, w2_bias = self.decoder.W2.variables
-                        v_kernel, v_bias = self.decoder.V.variables
+                        if self.config.use_persona_encoder is True:
+                            w1_kernel, w1_bias = self.decoder.W1.variables
+                            w2_kernel, w2_bias = self.decoder.W2.variables
+                            v_kernel, v_bias = self.decoder.V.variables
 
-                        tf.contrib.summary.histogram("decoder_w1_kernel", w1_kernel)
-                        tf.contrib.summary.histogram("decoder_w1_bias", w1_bias)
-                        tf.contrib.summary.histogram("decoder_w2_kernel", w2_kernel)
-                        tf.contrib.summary.histogram("decoder_w2_bias", w2_bias)
-                        tf.contrib.summary.histogram("decoder_v_kernel", v_kernel)
-                        tf.contrib.summary.histogram("decoder_v_bias", v_bias)
-                        """
+                            tf.contrib.summary.histogram("decoder_w1_kernel", w1_kernel)
+                            tf.contrib.summary.histogram("decoder_w1_bias", w1_bias)
+                            tf.contrib.summary.histogram("decoder_w2_kernel", w2_kernel)
+                            tf.contrib.summary.histogram("decoder_w2_bias", w2_bias)
+                            tf.contrib.summary.histogram("decoder_v_kernel", v_kernel)
+                            tf.contrib.summary.histogram("decoder_v_bias", v_bias)
+
                         tf.contrib.summary.histogram("decoder_projection_kernel", projection_kernel)
                         tf.contrib.summary.histogram("decoder_projection_bias", projection_bias)
 
