@@ -563,6 +563,7 @@ class Model(object):
                 # quit if we have done the correct number of steps
                 if step >= num_steps:
                     quit = True
+                    break
 
             epoch += 1
 
