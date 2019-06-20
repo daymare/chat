@@ -114,6 +114,7 @@ def get_data_info(data, save_fname='./data/data_info.txt',
     max_sentence_len = 0
     max_conversation_len = 0
     max_conversation_words = 0
+    sum_conversation_words = 0
     max_persona_len = 0
     word2id = {}
     id2word = []
@@ -181,16 +182,22 @@ def get_data_info(data, save_fname='./data/data_info.txt',
                 # add word to id dictionary
                 if word not in word2id and ' ' not in word:
                     add_word(word)
+        
+        # account for <pads> that will be added
+        conversation_words += conversation_len
+
+        # account for <start> and <end>
+        conversation_words += 2
 
         max_conversation_words = max(max_conversation_words,
                 conversation_words)
-
-    # account for <pads> that will be added
-    max_conversation_words += max_conversation_len
+        sum_conversation_words += conversation_words
 
     # account for <start> and <end>
     max_sentence_len += 2
-    max_conversation_words += 2
+
+    print("max conversation words: {}".format(max_conversation_words))
+    print("avg conversation words: {}".format(sum_conversation_words / len(data)))
 
     # TODO save to savefile
     id2word = np.array(id2word)
