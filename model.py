@@ -66,7 +66,6 @@ class PersonaEncoder(tf.keras.Model):
                 (batch_size, max_persona_sentences, max_sentence_len)
             hidden - previous hidden vector
         """
-
         outputs = []
 
         # reshape personas to fit the lstm
@@ -305,10 +304,9 @@ class Model(object):
         # train loop
         # TODO start saving and using global step here
         step = 0
+        epoch = 0
         quit = False
         while quit is False:
-        #for step in range(num_steps):
-
             # iterate through one epoch
             for batch in get_batch_iterator(
                 train_data,
@@ -545,6 +543,7 @@ class Model(object):
 
                 # print out progress
                 print('\n')
+                print('Epoch {}'.format(epoch + 1))
                 print('Batch {}'.format(step + 1))
                 print('Memory usage (MB): {}'.format(tf.contrib.memory_stats.BytesInUse() / 1000000))
                 print('Max memory usage (MB): {}'.format(tf.contrib.memory_stats.MaxBytesInUse() / 1000000))
@@ -564,6 +563,8 @@ class Model(object):
                 # quit if we have done the correct number of steps
                 if step >= num_steps:
                     quit = True
+
+            epoch += 1
 
         if parameter_search == True:
             recent_avg_loss = sum(loss_history) / len(loss_history)
