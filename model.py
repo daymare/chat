@@ -163,34 +163,33 @@ class Decoder(tf.keras.Model):
         self.W2 = tf.keras.layers.Dense(self.dec_units, name="w2")
         self.V = tf.keras.layers.Dense(1, name="V")
 
-    def call(self, x, persona_embeddings, hidden):
-        # attention calculations
-        # persona embeddings shape: (batch_size, max_persona_sentences, hidden_size)
-
-        # hidden shape (batch size, hidden size)
-        # hidden with time axis shape (batch size, 1, hidden size)
-        hidden_with_time_axis = tf.expand_dims(hidden, 1)
-
-        # score shape (batch size, max persona sentences, 1)
-        """
-        W1_hidden = self.W1(hidden_with_time_axis)
-        W2_persona = self.W2(persona_embeddings)
-        score = self.V(W1_hidden + W2_persona)
-
-        # attention weights shape (batch size, max persona sentences, 1)
-        attention_weights = tf.nn.softmax(score, axis=1)
-
-        # context vector shape after sum (batch size, hidden size)
-        context_vector = attention_weights * persona_embeddings
-        context_vector = tf.reduce_sum(context_vector, axis=1)
-        """
-
+    def call(self, x, persona_embeddings, hidden, use_persona_encoder=False):
         # x shape after passing through embedding: 
         # (batch_szie, 1, embedding_dim)
         x = self.embedding(x)
 
-        # x shape after concatenation (batch size, 1, embedding dim + hidden size)
-        #x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
+        if use_persona_encoder is True:
+            # attention calculations
+            # persona embeddings shape: (batch_size, max_persona_sentences, hidden_size)
+
+            # hidden shape (batch size, hidden size)
+            # hidden with time axis shape (batch size, 1, hidden size)
+            hidden_with_time_axis = tf.expand_dims(hidden, 1)
+
+            # score shape (batch size, max persona sentences, 1)
+            W1_hidden = self.W1(hidden_with_time_axis)
+            W2_persona = self.W2(persona_embeddings)
+            score = self.V(W1_hidden + W2_persona)
+
+            # attention weights shape (batch size, max persona sentences, 1)
+            attention_weights = tf.nn.softmax(score, axis=1)
+
+            # context vector shape after sum (batch size, hidden size)
+            context_vector = attention_weights * persona_embeddings
+            context_vector = tf.reduce_sum(context_vector, axis=1)
+
+            # x shape after concatenation (batch size, 1, embedding dim + hidden size)
+            x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
 
         output, dec_hidden1, dec_hidden2 = self.cell(x, hidden)
         dec_hidden = [dec_hidden1, dec_hidden2]
@@ -212,6 +211,7 @@ class Model(object):
     def __init__(self, config, word2vec, id2word, word2id):
         self.load_config(config, word2vec, id2word, word2id)
 
+        # word embeddings
         embedding = tf.keras.layers.Embedding(
                 input_dim=self.config.vocab_size,
                 output_dim=self.config.embedding_dim,
@@ -221,15 +221,22 @@ class Model(object):
         persona_encoder_sizes = [int(s_val) for s_val in config.persona_encoder_sizes]
         encoder_sizes = [int(s_val) for s_val in config.encoder_sizes]
         
-        self.persona_encoder = PersonaEncoder(
-                persona_encoder_sizes, 
-                self.config.batch_size,
-                embedding)
+        # persona encoder
+        if self.config.use_persona_encoder is True:
+            self.persona_encoder = PersonaEncoder(
+                    persona_encoder_sizes, 
+                    self.config.batch_size,
+                    embedding)
+        else:
+            self.persona_encoder = None
 
+        # encoder
         self.encoder = Encoder(
                 encoder_sizes, 
                 self.config.batch_size,
                 embedding)
+
+        # decoder
         self.decoder = Decoder(
                 self.config.decoder_units, 
                 self.config.vocab_size,
@@ -266,7 +273,6 @@ class Model(object):
         self.word2vec = word2vec
         self.id2word = id2word
         self.word2id = word2id
-
 
     def load(self, checkpoint_dir):
         """ load the model from a save file """
@@ -346,9 +352,11 @@ class Model(object):
                     # note that enc_hidden must be the same dim as decoder units
                     dec_hidden = enc_hidden
 
-                    # disable persona for testing
-                    #persona_embeddings = self.persona_encoder(personas)
-                    persona_embeddings = None
+                    # process personas
+                    if self.config.use_persona_encoder is True:
+                        persona_embeddings = self.persona_encoder(personas)
+                    else:
+                        persona_embeddings = None
 
                     dec_input = tf.expand_dims([self.word2id[
                         '<start>']] * self.config.batch_size, 1)
@@ -361,7 +369,8 @@ class Model(object):
                         predictions, dec_hidden = self.decoder(
                                 dec_input,
                                 persona_embeddings,
-                                dec_hidden)
+                                dec_hidden,
+                                self.config.use_persona_encoder)
 
                         sample_loss, sample_ppl = \
                             self.loss_function(responses[:, t], predictions)
@@ -563,6 +572,9 @@ class Model(object):
             return recent_avg_loss, recent_avg_ppl
 
     def eval(self, test_data):
+        # TODO share more code between eval and train. 
+        # Lots of repeated code between the two and it is introducing bugs when stuff in train gets changed.
+        # also TODO update eval to match train changes
         """ get loss on eval set
         """
         total_loss = 0.0
