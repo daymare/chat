@@ -149,7 +149,6 @@ def get_batch_iterator(dataset, batch_size, max_sentence_len,
         persona, conversation, response = sample
 
         # add to lists
-        # TODO fix this mess
         personas.append(persona)
         sentences.append(conversation)
         responses.append(response)
@@ -173,9 +172,6 @@ def get_batch_iterator(dataset, batch_size, max_sentence_len,
             personas = []
             sentences = []
             responses = []
-            persona_lens = []
-            sentence_lens = []
-            response_lens = []
 
 
 def get_sample_iterator(dataset, max_sentence_len,

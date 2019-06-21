@@ -252,12 +252,20 @@ class Model(object):
         # checkpoints
         checkpoint_dir = config.checkpoint_dir
         checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
-        self.checkpoint = tf.train.Checkpoint(
-                embedding=embedding,
-                optimizer=optimizer,
-                persona_encoder=self.persona_encoder,
-                encoder=self.encoder,
-                decoder=self.decoder)
+        if self.config.use_persona_encoder is True:
+            self.checkpoint = tf.train.Checkpoint(
+                    embedding=embedding,
+                    optimizer=optimizer,
+                    persona_encoder=self.persona_encoder,
+                    encoder=self.encoder,
+                    decoder=self.decoder)
+        else:
+            self.checkpoint = tf.train.Checkpoint(
+                    embedding=embedding,
+                    optimizer=optimizer,
+                    encoder=self.encoder,
+                    decoder=self.decoder)
+
 
     def loss_function(self, real, pred):
         loss_ = tf.nn.sparse_softmax_cross_entropy_with_logits(
