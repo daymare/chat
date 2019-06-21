@@ -52,9 +52,6 @@ def get_sample(dataset, max_sentence_len,
             sentences will start with the partner statement. Sentences will
             be separated by <pad>
         response - nparray[word] - dataset response output
-        persona_sentence_lens - List[int] - length of each sentence in the persona sentences
-        conversation_len - int - total length of the conversation including pads
-        response_len - int - length of the response sentence
     """
 
     if chat_index is None:
@@ -66,9 +63,6 @@ def get_sample(dataset, max_sentence_len,
 
     # load up the persona information
     persona = chat.your_persona
-    persona_lens = []
-    for persona_sentence in persona:
-        persona_lens.append(len(persona_sentence))
 
     if sample_index is None:
         # choose a random piece of the conversation
@@ -79,7 +73,6 @@ def get_sample(dataset, max_sentence_len,
 
     # load the previous conversation
     conversation = [word2id['<start>']]
-    conversation_len = 1
 
     for i in range(0, index):
         exchange = chat.chat[i]
@@ -88,13 +81,11 @@ def get_sample(dataset, max_sentence_len,
         for word in exchange[0]:
             conversation.append(word)
         conversation.append(word2id['<pad>'])
-        conversation_len += len(exchange[0]) + 1
 
         # agent sentence
         for word in exchange[1]:
             conversation.append(word)
         conversation.append(word2id['<pad>'])
-        conversation_len += len(exchange[1]) + 1
 
 
     # load the response
@@ -103,36 +94,33 @@ def get_sample(dataset, max_sentence_len,
     for word in exchange[0]:
         conversation.append(word)
     conversation.append(word2id['<pad>'])
-    conversation_len += len(exchange[0]) + 1
 
     conversation.append(word2id['<end>'])
-    conversation_len += 1
 
     response = copy.deepcopy(exchange[1])
     response.append(word2id['<end>'])
-    response_len = len(exchange[1]) + 1
 
     # convert everything to np arrays
+    # TODO remove
     for i in range(len(persona)):
         sentence = persona[i]
         new_sentence = sentence_to_np(sentence, max_sentence_len)
         persona[i] = new_sentence
 
     # pad persona sentences
+    # TODO remove
     while len(persona) < max_persona_sentences:
         pad_sentence = np.zeros(max_sentence_len, dtype=np.int32)
         persona.append(pad_sentence)
-        persona_lens.append(0)
-    persona_lens = np.array(persona_lens, dtype=np.int32)
     persona = np.array(persona, dtype=np.int32)
 
+    # TODO remove
     conversation = sentence_to_np(conversation, 
             max_conversation_words)
 
     response = sentence_to_np(response, max_sentence_len)
 
-    return persona, conversation, response, persona_lens, \
-        conversation_len, response_len
+    return persona, conversation, response
 
 def get_batch_iterator(dataset, batch_size, max_sentence_len,
         max_conversation_words,
@@ -144,9 +132,6 @@ def get_batch_iterator(dataset, batch_size, max_sentence_len,
     personas = []
     sentences = []
     responses = []
-    persona_lens = []
-    sentence_lens = []
-    response_lens = []
 
     for sample in get_eval_sample_iterator(
             dataset, 
@@ -155,36 +140,28 @@ def get_batch_iterator(dataset, batch_size, max_sentence_len,
             max_persona_sentences):
 
         # break out the sample
-        persona, conversation, response, persona_sentence_lens, \
-            conversation_len, response_len = sample
+        persona, conversation, response = sample
 
         # add to lists
         personas.append(persona)
         sentences.append(conversation)
         responses.append(response)
-        persona_lens.append(persona_sentence_lens)
-        sentence_lens.append(conversation_len)
-        response_lens.append(response_len)
 
         if len(personas) == batch_size:
+            # pad all time dimensions to max in batch
+            personas = pad_personas(personas)
+            
             # convert everything to np arrays
             personas = np.array(personas)
             sentences = np.array(sentences)
             responses = np.array(responses)
-            persona_lens = np.array(persona_lens)
-            sentence_lens = np.array(sentence_lens)
-            response_lens = np.array(response_lens)
 
             # convert to tensors
             personas = tf.constant(personas)
             sentences = tf.constant(sentences)
             responses = tf.constant(responses)
-            persona_lens = tf.constant(persona_lens)
-            sentence_lens = tf.constant(sentence_lens)
-            response_lens = tf.constant(response_lens)
 
-            yield personas, sentences, responses, \
-                    persona_lens, sentence_lens, response_lens
+            yield personas, sentences, responses
 
 
 def get_sample_iterator(dataset, max_sentence_len,
