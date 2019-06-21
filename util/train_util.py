@@ -1,4 +1,8 @@
 import random
+import copy
+
+import numpy as np
+import tensorflow as tf
 
 from util.load_util import Chat
 
@@ -124,7 +128,8 @@ def get_sample(dataset, max_sentence_len,
 
 def get_batch_iterator(dataset, batch_size, max_sentence_len,
         max_conversation_words,
-        max_persona_sentences):
+        max_persona_sentences,
+        word2id):
     """ get an iterator over consecutive batches in the eval set
 
     note that we may miss up to batch_size-1 samples in the dataset
@@ -133,16 +138,18 @@ def get_batch_iterator(dataset, batch_size, max_sentence_len,
     sentences = []
     responses = []
 
-    for sample in get_eval_sample_iterator(
+    for sample in get_sample_iterator(
             dataset, 
             max_sentence_len,
             max_conversation_words,
-            max_persona_sentences):
+            max_persona_sentences,
+            word2id):
 
         # break out the sample
         persona, conversation, response = sample
 
         # add to lists
+        # TODO fix this mess
         personas.append(persona)
         sentences.append(conversation)
         responses.append(response)
@@ -163,6 +170,13 @@ def get_batch_iterator(dataset, batch_size, max_sentence_len,
 
             yield personas, sentences, responses
 
+            personas = []
+            sentences = []
+            responses = []
+            persona_lens = []
+            sentence_lens = []
+            response_lens = []
+
 
 def get_sample_iterator(dataset, max_sentence_len,
         max_conversation_words, max_persona_sentences, word2id):
@@ -174,7 +188,7 @@ def get_sample_iterator(dataset, max_sentence_len,
                 self.free.append(i)
     
         def get_next_index(self):
-            free_index = random.rand_int(0, len(self.free)-1)
+            free_index = random.randint(0, len(self.free)-1)
             sample_index = self.free.pop(free_index)
             return sample_index
         
@@ -185,24 +199,24 @@ def get_sample_iterator(dataset, max_sentence_len,
     free_chats = []
     for i in range(len(dataset)):
         chat = dataset[i]
-        current_marker = ChatMarker(chat)
+        current_marker = ChatMarker(chat, i)
         free_chats.append(current_marker)
     
     # start yielding samples
     while len(free_chats) > 0:
         # choose a chat
-        free_index = random.rand_int(0, len(free_chats)-1)
+        free_index = random.randint(0, len(free_chats)-1)
         chat_marker = free_chats[free_index]
 
         chat_index = chat_marker.chat_index
         sample_index = chat_marker.get_next_index()
 
         # remove chat if there are no samples remaining
-        if chat_index.is_empty() == True:
+        if chat_marker.is_empty() == True:
             del free_chats[free_index]
 
-        yield get_sample(dataset, max_sentence_len, max_conversation_len,
+        yield get_sample(dataset, max_sentence_len, max_conversation_words,
                 max_persona_sentences, word2id,
-                chat_index, smaple_index)
+                chat_index, sample_index)
 
 

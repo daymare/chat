@@ -9,8 +9,7 @@ import pdb
 import tensorflow as tf
 import numpy as np
 
-from util.data_util import get_training_batch_full
-from util.data_util import get_batch_iterator
+from util.train_util import get_batch_iterator
 
 
 def lstm(units, name=None):
@@ -313,7 +312,8 @@ class Model(object):
                 self.config.batch_size,
                 self.config.max_sentence_len,
                 self.config.max_conversation_words,
-                self.config.max_persona_len):
+                self.config.max_persona_len,
+                self.word2id):
 
                 global_step.assign_add(1)
                 step += 1

@@ -3,10 +3,10 @@ import numpy as np
 import logging
 import sys
 
-from util.data_util import get_personas
+from util.train_util import get_personas
+from util.train_util import sentence_to_np
 from util.data_util import convert_sentence_to_id
 from util.data_util import convert_sentence_from_id
-from util.data_util import sentence_to_np
 
 from model import Model
 
