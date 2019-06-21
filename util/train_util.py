@@ -37,16 +37,11 @@ def get_personas(dataset, max_sentence_len, max_conversation_len, max_persona_se
     return persona1, persona2
 
 
-def get_sample(dataset, max_sentence_len,
-        max_conversation_words, max_persona_sentences, word2id,
+def get_sample(dataset, word2id,
         chat_index=None, sample_index=None):
     """ get a full sample from the dataset
     input:
         dataset - dataset to sample from
-        max_sentence_len - max sentence len to normalize to
-        max_conversation_len - max number of sentences in a conversation to normalize to
-        max_conversation_words - max number of words in a conversation to normalize to
-        max_persona_sentences - max persona sentences to normalize to
         chat_index - index of chat to use. If None then pick random chat
         sample_index - index of conversation turn to use within the selected chat
                        if None then pick random turn
@@ -106,9 +101,7 @@ def get_sample(dataset, max_sentence_len,
 
     return persona, conversation, response
 
-def get_batch_iterator(dataset, batch_size, max_sentence_len,
-        max_conversation_words,
-        max_persona_sentences,
+def get_batch_iterator(dataset, batch_size,
         word2id):
     """ get an iterator over consecutive batches in the eval set
 
@@ -171,9 +164,6 @@ def get_batch_iterator(dataset, batch_size, max_sentence_len,
 
     for sample in get_sample_iterator(
             dataset, 
-            max_sentence_len,
-            max_conversation_words,
-            max_persona_sentences,
             word2id):
 
         # break out the sample
@@ -207,8 +197,7 @@ def get_batch_iterator(dataset, batch_size, max_sentence_len,
             responses = []
 
 
-def get_sample_iterator(dataset, max_sentence_len,
-        max_conversation_words, max_persona_sentences, word2id):
+def get_sample_iterator(dataset, word2id):
     class ChatMarker:
         def __init__(self, chat, chat_index):
             self.free = []
@@ -244,8 +233,7 @@ def get_sample_iterator(dataset, max_sentence_len,
         if chat_marker.is_empty() == True:
             del free_chats[free_index]
 
-        yield get_sample(dataset, max_sentence_len, max_conversation_words,
-                max_persona_sentences, word2id,
+        yield get_sample(dataset, word2id,
                 chat_index, sample_index)
 
 

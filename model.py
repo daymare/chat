@@ -318,9 +318,6 @@ class Model(object):
             for batch in get_batch_iterator(
                 train_data,
                 self.config.batch_size,
-                self.config.max_sentence_len,
-                self.config.max_conversation_words,
-                self.config.max_persona_len,
                 self.word2id):
 
                 global_step.assign_add(1)
@@ -333,13 +330,11 @@ class Model(object):
                     ppl = 0.0
 
                     # split out batch
-                    personas, sentences, responses, persona_lens, \
-                        sentence_lens, response_lens = batch
+                    personas, sentences, responses = batch
 
                     tape.watch(sentences)
                     tape.watch(personas)
                     tape.watch(responses)
-                    tape.watch(hidden)
 
                     _, enc_hidden = self.encoder(sentences, hidden)
 
@@ -594,14 +589,11 @@ class Model(object):
         for batch in get_batch_iterator(
                 test_data,
                 self.config.batch_size,
-                self.config.max_sentence_len,
-                self.config.max_conversation_words,
-                self.config.max_persona_len):
+                self.word2id):
             num_samples += self.config.batch_size
 
             # split out batch
-            personas, sentences, responses, persona_lens, \
-                sentence_lens, response_lens = batch
+            personas, sentences, responses = batch
 
             # run encoder
             hidden = self.encoder.initialize_hidden_state()
