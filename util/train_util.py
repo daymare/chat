@@ -104,26 +104,6 @@ def get_sample(dataset, max_sentence_len,
     response = copy.deepcopy(exchange[1])
     response.append(word2id['<end>'])
 
-    # convert everything to np arrays
-    # TODO remove
-    for i in range(len(persona)):
-        sentence = persona[i]
-        new_sentence = sentence_to_np(sentence, max_sentence_len)
-        persona[i] = new_sentence
-
-    # pad persona sentences
-    # TODO remove
-    while len(persona) < max_persona_sentences:
-        pad_sentence = np.zeros(max_sentence_len, dtype=np.int32)
-        persona.append(pad_sentence)
-    persona = np.array(persona, dtype=np.int32)
-
-    # TODO remove
-    conversation = sentence_to_np(conversation, 
-            max_conversation_words)
-
-    response = sentence_to_np(response, max_sentence_len)
-
     return persona, conversation, response
 
 def get_batch_iterator(dataset, batch_size, max_sentence_len,
@@ -134,6 +114,57 @@ def get_batch_iterator(dataset, batch_size, max_sentence_len,
 
     note that we may miss up to batch_size-1 samples in the dataset
     """
+    def pad_personas(personas):
+        """ pads each persona to the max length among all persona sentences
+            in the batch.
+            Also pads the number of persona sentences
+        """
+        # persona shape: (jagged) (num_sentences, num_words)
+        # personas shape: (batch_size, num_sentences, num_words)
+        # after model transpose: (num_sentences, batch_size, num_words)
+
+        # find max sentence len and max persona len
+        max_words = 0
+        max_persona_len = 0
+        for persona in personas:
+            max_persona_len = max(max_persona_len, len(persona))
+            for sentence in persona:
+                max_words = max(max_words, len(sentence))
+
+        new_personas = []
+        for persona in personas:
+            new_persona = []
+            # pad each persona sentence
+            for i in range(len(persona)):
+                new_persona.append(sentence_to_np(persona[i], max_sentence_len))
+
+            # pad persona as a whole
+            while len(new_persona) < max_persona_len:
+                pad_sentence = np.zeros(max_words, dtype=np.int32)
+                new_persona.append(pad_sentence)
+
+            new_personas.append(new_persona)
+
+        return new_personas
+
+    def pad_sentences(sentences):
+        """ pad batch of sentences to the max sentence length of the batch
+
+            shape of input should be: (batch_size, sentence_lengths(jagged))
+        """
+        # find max sentence len
+        max_len = 0
+        for sentence in sentences:
+            max_len = max(max_len, len(sentence))
+
+        # pad each sentence
+        new_sentences = []
+        for sentence in sentences:
+            new_sentence.append(sentence_to_np(sentence, max_len))
+
+        return new_sentences
+
+
     personas = []
     sentences = []
     responses = []
@@ -156,6 +187,8 @@ def get_batch_iterator(dataset, batch_size, max_sentence_len,
         if len(personas) == batch_size:
             # pad all time dimensions to max in batch
             personas = pad_personas(personas)
+            sentences = pad_sentences(sentences)
+            responses = pad_sentences(responses)
             
             # convert everything to np arrays
             personas = np.array(personas)
