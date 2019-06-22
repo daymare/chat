@@ -129,7 +129,7 @@ def get_batch_iterator(dataset, batch_size,
             new_persona = []
             # pad each persona sentence
             for i in range(len(persona)):
-                new_persona.append(sentence_to_np(persona[i], max_sentence_len))
+                new_persona.append(sentence_to_np(persona[i], max_words))
 
             # pad persona as a whole
             while len(new_persona) < max_persona_len:
@@ -153,7 +153,7 @@ def get_batch_iterator(dataset, batch_size,
         # pad each sentence
         new_sentences = []
         for sentence in sentences:
-            new_sentence.append(sentence_to_np(sentence, max_len))
+            new_sentences.append(sentence_to_np(sentence, max_len))
 
         return new_sentences
 

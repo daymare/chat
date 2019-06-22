@@ -391,12 +391,15 @@ class Model(object):
                 batch_ppl = ppl
 
                 # calculate gradient and apply
-                # TODO ensure persona encoder variables have a gradient when it is re-enabled.
-                variables = (
-                        self.persona_encoder.variables 
-                        + self.encoder.variables 
-                        + self.decoder.variables
-                        )
+                if self.config.use_persona_encoder is True:
+                    variables = (
+                            self.persona_encoder.variables 
+                            + self.encoder.variables 
+                            + self.decoder.variables)
+                else:
+                    variables = (
+                            self.encoder.variables
+                            + self.decoder.variables)
                 gradients = tape.gradient(loss, variables)
 
                 gradients, _ = tf.clip_by_global_norm(gradients,
