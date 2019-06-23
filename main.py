@@ -14,7 +14,7 @@ tf_config = tf.ConfigProto(gpu_options=gpu_options)
 tf.enable_eager_execution(config=tf_config)
 
 # set environment variable to force allow growth
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'false'
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 
 from util.load_util import load_word_embeddings, load_dataset
 from util.data_util import get_data_info, convert_to_id
