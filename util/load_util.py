@@ -108,7 +108,7 @@ def load_word_embeddings(fname, embedding_dim, word2id):
                 oov = oov - 1
 
     # TODO re-evaluate whether pad should be zeros or not
-    #word2vec[word2id['<pad>'], :] = 0
+    word2vec[word2id['<endpad>'], :] = 0
 
     print('There are %s words in vocabulary \
             and %s words out of vocabulary'
