@@ -60,7 +60,7 @@ tf.app.flags.DEFINE_float('max_gradient_norm',
 tf.app.flags.DEFINE_float('learning_rate',
         3*10**-4, 'learning rate during training')
 tf.app.flags.DEFINE_integer('train_steps',
-        20000, 'number of training steps to train for')
+        30000, 'number of training steps to train for')
 tf.app.flags.DEFINE_integer('batch_size',
         64, 'batch size')
 
