@@ -47,14 +47,14 @@ tf.app.flags.DEFINE_string('embedding_fname',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_list('encoder_sizes', '400',
+tf.app.flags.DEFINE_list('encoder_sizes', '500',
         'size of each layer in the encoder')
 tf.app.flags.DEFINE_bool('use_persona_encoder', False,
         'whether to process persona information and feed to the decoder or not')
 tf.app.flags.DEFINE_list('persona_encoder_sizes', '300',
         'size of each layer in the persona encoder')
 tf.app.flags.DEFINE_integer('decoder_units', 
-        400, 'size of the hidden layer in the decoder')
+        500, 'size of the hidden layer in the decoder')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
 tf.app.flags.DEFINE_float('learning_rate',
@@ -80,7 +80,7 @@ tf.app.flags.DEFINE_boolean('save_model',
 tf.app.flags.DEFINE_string('checkpoint_dir',
         './train/model_save/', 'where to save the model')
 tf.app.flags.DEFINE_string('logdir',
-        './train/full_dataset/400dim', 'where to save tensorboard summaries')
+        './train/full_dataset/500dim', 'where to save tensorboard summaries')
 tf.app.flags.DEFINE_boolean('load_model',
         False, 
         'whether to load the model from file or not for training.')
