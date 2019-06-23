@@ -7,6 +7,15 @@ import tensorflow as tf
 from tensorflow.python import debug as tf_debug
 import numpy as np
 
+
+# set eager to allow growth
+gpu_options = tf.GPUOptions(allow_growth=True)
+tf_config = tf.ConfigProto(gpu_options=gpu_options)
+tf.enable_eager_execution(config=tf_config)
+
+# set environment variable to force allow growth
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'false'
+
 from util.load_util import load_word_embeddings, load_dataset
 from util.data_util import get_data_info, convert_to_id
 from util.data_viz import look_at_data
@@ -109,9 +118,8 @@ tf.app.flags.DEFINE_integer('vocab_size', 0,
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 #logging.basicConfig(stream=sys.stderr, level=logging.CRITICAL)
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-tf.enable_eager_execution()
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.set_random_seed(1) # for testing, remove after system has been verified
 random.seed(1) # for testing, remove after the system has been verified
 
@@ -170,10 +178,7 @@ def main(_):
                 sess, 'localhost:6064')
 
 
-    # TODO add flags and control flow for parameter search
     logging.debug('building model')
-    #model = Seq2SeqBot(config, sess, word2vec, id2word)
-    #model = ProfileMemoryBot(config, sess, word2vec, id2word)
 
     model = Model(config, word2vec, id2word, word2id)
 
