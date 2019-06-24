@@ -117,9 +117,9 @@ tf.app.flags.DEFINE_integer('vocab_size', 0,
 # logging
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 #logging.basicConfig(stream=sys.stderr, level=logging.CRITICAL)
-
-
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+# set random seeds for testing
 tf.set_random_seed(1) # for testing, remove after system has been verified
 random.seed(1) # for testing, remove after the system has been verified
 
@@ -143,10 +143,15 @@ def main(_):
     config.max_persona_len = max_persona_len
     config.vocab_size = len(word2id)
 
-    logging.debug('max sentence len: %i' % max_sentence_len)
-    logging.debug("max conversation words: {}".format(max_conversation_words))
-    logging.debug('word2id size: %i' % len(word2id))
-    logging.debug('id2word shape: %s' % str(id2word.shape))
+    # output parameters to stdout
+    print("\n\n")
+    print("parameters:")
+    for key, value in config.flag_values_dict().items():
+        print("    ", end="")
+        print("{} : {}".format(key, value))
+    print("\n\n")
+    sys.exit()
+
 
     # load word vectors
     print('loading word vectors')
