@@ -89,7 +89,6 @@ class PersonaEncoder(tf.keras.Model):
 
         # reshape outputs to be what we expect
         outputs = tf.convert_to_tensor(outputs)
-        print("outputs: {}".format(outputs.shape))
         outputs = tf.transpose(outputs, [2, 0, 1, 3])
 
         return outputs
