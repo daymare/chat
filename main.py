@@ -150,8 +150,6 @@ def main(_):
         print("    ", end="")
         print("{} : {}".format(key, value))
     print("\n\n")
-    sys.exit()
-
 
     # load word vectors
     print('loading word vectors')
