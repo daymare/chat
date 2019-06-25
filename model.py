@@ -567,7 +567,7 @@ class Model(object):
                         file_prefix = self.config.checkpoint_dir)
 
                 # quit if we have done the correct number of steps
-                if step >= num_steps:
+                if step >= num_steps and num_steps != -1:
                     quit = True
                     break
 
