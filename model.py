@@ -158,7 +158,7 @@ class Decoder(tf.keras.Model):
 
         # attention stuff
         self.W1 = tf.keras.layers.Dense(self.dec_units, name="W1")
-        self.W2 = tf.keras.layers.Dense(self.dec_units, name="w2")
+        self.W2 = tf.keras.layers.Dense(self.dec_units, name="W2")
         self.V = tf.keras.layers.Dense(1, name="V")
 
     def call(self, x, persona_embeddings, hidden, use_persona_encoder=False):
@@ -167,27 +167,29 @@ class Decoder(tf.keras.Model):
         x = self.embedding(x)
 
         if use_persona_encoder is True:
-            # attention calculations
-            # persona embeddings shape: (batch_size, max_persona_sentences, hidden_size)
+            # concatenate the two hidden states for hidden and persona embeddings
+            persona_embedding_list = [persona_embeddings[:,:,i,:] for i in range(persona_embeddings.shape[2])]
+            persona_embeddings = tf.concat(persona_embedding_list, 2)
 
-            # hidden shape (batch size, hidden size)
-            # hidden with time axis shape (batch size, 1, hidden size)
-            hidden_with_time_axis = tf.expand_dims(hidden, 1)
+            # add time dimension to hidden state
+            concat_hidden = tf.concat(hidden, 1)
+            hidden_w_time_axis = tf.expand_dims(concat_hidden, 1)
 
-            # score shape (batch size, max persona sentences, 1)
-            W1_hidden = self.W1(hidden_with_time_axis)
-            W2_persona = self.W2(persona_embeddings)
-            score = self.V(W1_hidden + W2_persona)
+            # get scores
+            w1_hidden = self.W1(hidden_w_time_axis)
+            w2_persona = self.W2(persona_embeddings)
+            score = self.V(w1_hidden + w2_persona)
 
-            # attention weights shape (batch size, max persona sentences, 1)
+            # get attention weights
             attention_weights = tf.nn.softmax(score, axis=1)
 
-            # context vector shape after sum (batch size, hidden size)
+            # get context vector
             context_vector = attention_weights * persona_embeddings
             context_vector = tf.reduce_sum(context_vector, axis=1)
+            context_vector = tf.expand_dims(context_vector, 1)
 
-            # x shape after concatenation (batch size, 1, embedding dim + hidden size)
-            x = tf.concat([tf.expand_dims(context_vector, 1), x], axis=-1)
+            x = tf.concat([context_vector, x], axis=-1)
+
 
         output, dec_hidden1, dec_hidden2 = self.cell(x, hidden)
         dec_hidden = [dec_hidden1, dec_hidden2]
