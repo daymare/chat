@@ -47,9 +47,9 @@ tf.app.flags.DEFINE_string('embedding_fname',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_list('encoder_sizes', '300, 300',
+tf.app.flags.DEFINE_list('encoder_sizes', '300',
         'size of each layer in the encoder')
-tf.app.flags.DEFINE_boolean('input_independant', False,
+tf.app.flags.DEFINE_boolean('input_independant', True,
         'whether to train without input')
 tf.app.flags.DEFINE_bool('use_persona_encoder', False,
         'whether to process persona information and feed to the decoder or not')
@@ -62,7 +62,7 @@ tf.app.flags.DEFINE_float('max_gradient_norm',
 tf.app.flags.DEFINE_float('learning_rate',
         3*10**-4, 'learning rate during training')
 tf.app.flags.DEFINE_integer('train_steps',
-        30000, 'number of training steps to train for')
+        -1, 'number of training steps to train for')
 tf.app.flags.DEFINE_integer('batch_size',
         64, 'batch size')
 
