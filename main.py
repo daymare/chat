@@ -49,6 +49,8 @@ tf.app.flags.DEFINE_string('embedding_fname',
 # model flags
 tf.app.flags.DEFINE_list('encoder_sizes', '300, 300',
         'size of each layer in the encoder')
+tf.app.flags.DEFINE_boolean('input_independant', False,
+        'whether to train without input')
 tf.app.flags.DEFINE_bool('use_persona_encoder', False,
         'whether to process persona information and feed to the decoder or not')
 tf.app.flags.DEFINE_list('persona_encoder_sizes', '300',

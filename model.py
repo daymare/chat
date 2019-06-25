@@ -332,6 +332,10 @@ class Model(object):
                     # split out batch
                     personas, sentences, responses = batch
 
+                    if self.config.input_independant is True:
+                        personas = tf.zeros(personas)
+                        sentences = tf.zeros(sentences)
+
                     tape.watch(sentences)
                     tape.watch(personas)
                     tape.watch(responses)
