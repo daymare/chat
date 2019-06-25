@@ -333,8 +333,8 @@ class Model(object):
                     personas, sentences, responses = batch
 
                     if self.config.input_independant is True:
-                        personas = tf.zeros(personas)
-                        sentences = tf.zeros(sentences)
+                        personas = tf.zeros_like(personas)
+                        sentences = tf.zeros_like(sentences)
 
                     tape.watch(sentences)
                     tape.watch(personas)
