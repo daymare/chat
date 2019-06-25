@@ -49,7 +49,7 @@ tf.app.flags.DEFINE_string('embedding_fname',
 # model flags
 tf.app.flags.DEFINE_list('encoder_sizes', '300',
         'size of each layer in the encoder')
-tf.app.flags.DEFINE_boolean('input_independant', True,
+tf.app.flags.DEFINE_boolean('input_independant', False,
         'whether to train without input')
 tf.app.flags.DEFINE_bool('use_persona_encoder', False,
         'whether to process persona information and feed to the decoder or not')
@@ -70,9 +70,9 @@ tf.app.flags.DEFINE_integer('batch_size',
 tf.app.flags.DEFINE_boolean('save_summary',
         True, 'controls whether summaries are saved during training.')
 tf.app.flags.DEFINE_integer('save_frequency',
-        100, 'frequency of summary saves')
+        200, 'frequency of summary saves')
 tf.app.flags.DEFINE_integer('eval_frequency',
-        100, 'frequency of eval runs')
+        1000, 'frequency of eval runs')
 tf.app.flags.DEFINE_boolean('print_training',
         True, 'controls whether training progress is printed')
 tf.app.flags.DEFINE_integer('model_save_interval',
@@ -82,7 +82,7 @@ tf.app.flags.DEFINE_boolean('save_model',
 tf.app.flags.DEFINE_string('checkpoint_dir',
         './train/model_save/', 'where to save the model')
 tf.app.flags.DEFINE_string('logdir',
-        './train/full_dataset/iib', 'where to save tensorboard summaries')
+        './train/full_dataset/control_forever', 'where to save tensorboard summaries')
 tf.app.flags.DEFINE_boolean('load_model',
         False, 
         'whether to load the model from file or not for training.')
