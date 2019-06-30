@@ -8,15 +8,6 @@ import tensorflow as tf
 from tensorflow.python import debug as tf_debug
 import numpy as np
 
-
-# set eager to allow growth
-gpu_options = tf.GPUOptions(allow_growth=True)
-tf_config = tf.ConfigProto(gpu_options=gpu_options)
-tf.enable_eager_execution(config=tf_config)
-
-# set environment variable to force allow growth
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-
 from util.load_util import load_word_embeddings, load_dataset
 from util.data_util import get_data_info, convert_to_id
 from util.data_viz import look_at_data
@@ -26,6 +17,16 @@ from inference import run_inference
 from model import Model
 
 from parameter_search import perform_parameter_search
+
+
+
+# set eager to allow growth
+gpu_options = tf.GPUOptions(allow_growth=True)
+tf_config = tf.ConfigProto(gpu_options=gpu_options)
+tf.enable_eager_execution(config=tf_config)
+
+# set environment variable to force allow growth
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 
 
 config = tf.app.flags.FLAGS
