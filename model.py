@@ -250,22 +250,29 @@ class Model(object):
         self.optimizer = optimizer = \
             tf.train.AdamOptimizer(learning_rate=config.learning_rate)
 
+        # global step and epoch
+        self.global_step = tf.train.get_or_create_global_step()
+        self.epoch = tf.Variable(0)
+
         # checkpoints
         checkpoint_dir = config.checkpoint_dir
-        checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
         if self.config.use_persona_encoder is True:
             self.checkpoint = tf.train.Checkpoint(
                     embedding=embedding,
                     optimizer=optimizer,
                     persona_encoder=self.persona_encoder,
                     encoder=self.encoder,
-                    decoder=self.decoder)
+                    decoder=self.decoder,
+                    global_step = self.global_step,
+                    epoch = self.epoch)
         else:
             self.checkpoint = tf.train.Checkpoint(
                     embedding=embedding,
                     optimizer=optimizer,
                     encoder=self.encoder,
-                    decoder=self.decoder)
+                    decoder=self.decoder,
+                    global_step = self.global_step,
+                    epoch = self.epoch)
 
 
     def loss_function(self, real, pred):
@@ -283,12 +290,13 @@ class Model(object):
 
     def load(self, checkpoint_dir):
         """ load the model from a save file """
+        print("global step before load: {}".format(self.global_step.numpy()))
         self.checkpoint.restore(
                 tf.train.latest_checkpoint(checkpoint_dir))
+        print("global step after load: {}".format(self.global_step.numpy()))
 
     def train(self, train_data, test_data, num_steps,
             parameter_search=False):
-        global_step = tf.train.get_or_create_global_step()
 
         # keep track of average loss for parameter search
         if parameter_search == True:
@@ -310,9 +318,6 @@ class Model(object):
         last_enc_hidden = None
 
         # train loop
-        # TODO start saving and using global step here
-        step = 0
-        epoch = 0
         quit = False
         while quit is False:
             # iterate through one epoch
@@ -321,8 +326,7 @@ class Model(object):
                 self.config.batch_size,
                 self.word2id):
 
-                global_step.assign_add(1)
-                step += 1
+                self.global_step.assign_add(1)
                 start = time.time()
 
                 with tf.GradientTape() as tape:
@@ -421,7 +425,7 @@ class Model(object):
                 if self.config.save_summary == True:
                     # record eval loss
                     # TODO re-enable eval after validation
-                    if step % self.config.eval_frequency == 0 and False:
+                    if self.global_step.numpy() % self.config.eval_frequency == 0 and False:
                         with (tf.contrib.summary.
                                 always_record_summaries()):
                             # run eval
@@ -554,8 +558,8 @@ class Model(object):
 
                 # print out progress
                 print('\n')
-                print('Epoch {}'.format(epoch + 1))
-                print('Batch {}'.format(step + 1))
+                print('Epoch {}'.format(self.epoch + 1))
+                print('Batch {}'.format(self.global_step.numpy() + 1))
                 print('Memory usage (MB): {}'.format(tf.contrib.memory_stats.BytesInUse() / 1000000))
                 print('Max memory usage (MB): {}'.format(tf.contrib.memory_stats.MaxBytesInUse() / 1000000))
                 print('Loss: {:.4f}'.format(batch_loss.numpy()))
@@ -564,7 +568,7 @@ class Model(object):
                     time.time() - start), flush=True)
 
                 # save the model every x batches
-                if ((step + 1) % self.config.model_save_interval == 0
+                if ((self.global_step.numpy() + 1) % self.config.model_save_interval == 0
                         and self.config.save_model == True):
                     logging.debug('Saving model to: {}'.format(
                         self.config.checkpoint_dir))
@@ -572,11 +576,11 @@ class Model(object):
                         file_prefix = self.config.checkpoint_dir)
 
                 # quit if we have done the correct number of steps
-                if step >= num_steps and num_steps != -1:
+                if self.global_step.numpy() >= num_steps and num_steps != -1:
                     quit = True
                     break
 
-            epoch += 1
+            self.epoch.assign_add(1)
 
         if parameter_search == True:
             recent_avg_loss = sum(loss_history) / len(loss_history)
