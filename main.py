@@ -19,6 +19,7 @@ os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 from util.load_util import load_word_embeddings, load_dataset
 from util.data_util import get_data_info, convert_to_id
 from util.data_viz import look_at_data
+from util.file_util import tee_output
 from inference import run_inference
 
 from model import Model
@@ -127,6 +128,17 @@ random.seed(1) # for testing, remove after the system has been verified
 
 
 def main(_):
+    # override checkpoint
+    if config.checkpoint_dir == 'default':
+        config.checkpoint_dir = config.logdir + "/model_save/"
+
+    # copy stdout and stderr to checkpoint dir
+    tee_output(config.logdir, "out")
+
+    # print date and time for output records
+    now = datetime.datetime.now()
+    print("Current date and time: {}".format(now.strftime("%Y-%m-%d %H:%M:%S")))
+
     # load training data
     print('loading training data')
     dataset = load_dataset(config.dataset_file, config.pickle_filepath,
