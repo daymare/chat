@@ -204,8 +204,12 @@ def main(_):
     # load model
     # TODO add check to ensure the file exists
     if config.load_model == True or config.run_inference == True:
-        print("loading model")
-        model.load(config.checkpoint_dir)
+        # ensure load folder exists 
+        if os.path.isdir(config.checkpoint_dir):
+            print("loading model from: {}".format(config.checkpoint_dir))
+            model.load(config.checkpoint_dir)
+        else:
+            print("no save folder exists. Continuing without loading model.")
 
     # perform parameter search
     if config.parameter_search == True:
