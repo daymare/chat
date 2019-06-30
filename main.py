@@ -50,7 +50,7 @@ tf.app.flags.DEFINE_string('embedding_fname',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_list('encoder_sizes', '300',
+tf.app.flags.DEFINE_list('encoder_sizes', '50',
         'size of each layer in the encoder')
 tf.app.flags.DEFINE_boolean('input_independant', False,
         'whether to train without input')
@@ -59,35 +59,35 @@ tf.app.flags.DEFINE_bool('use_persona_encoder', True,
 tf.app.flags.DEFINE_list('persona_encoder_sizes', '300',
         'size of each layer in the persona encoder')
 tf.app.flags.DEFINE_integer('decoder_units', 
-        300, 'size of the hidden layer in the decoder')
+        50, 'size of the hidden layer in the decoder')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
 tf.app.flags.DEFINE_float('learning_rate',
         3*10**-4, 'learning rate during training')
 tf.app.flags.DEFINE_integer('train_steps',
-        -1, 'number of training steps to train for')
+        -1, 'number of training steps to train for. if -1 then train until interrupted')
 tf.app.flags.DEFINE_integer('batch_size',
-        64, 'batch size')
+        1, 'batch size')
 
 # training flags
 tf.app.flags.DEFINE_boolean('save_summary',
         True, 'controls whether summaries are saved during training.')
 tf.app.flags.DEFINE_integer('save_frequency',
-        200, 'frequency of summary saves')
+        10, 'frequency of summary saves')
 tf.app.flags.DEFINE_integer('eval_frequency',
         1000, 'frequency of eval runs')
 tf.app.flags.DEFINE_boolean('print_training',
         True, 'controls whether training progress is printed')
 tf.app.flags.DEFINE_integer('model_save_interval',
-        1000, 'number of epochs between model saves')
+        50, 'number of epochs between model saves')
 tf.app.flags.DEFINE_boolean('save_model',
-        False, 'whether to save the model or not')
+        True, 'whether to save the model or not')
 tf.app.flags.DEFINE_string('checkpoint_dir',
-        './train/model_save/', 'where to save the model')
+        'default', 'where to save and load the model. If default then set at runtime to logdir/model_save')
 tf.app.flags.DEFINE_string('logdir',
-        './train/full_dataset/persona_encoder', 'where to save tensorboard summaries')
+        './train/save_test', 'where to save tensorboard summaries')
 tf.app.flags.DEFINE_boolean('load_model',
-        False, 
+        True, 
         'whether to load the model from file or not for training.')
 
 # control flags
