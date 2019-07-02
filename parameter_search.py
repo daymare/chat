@@ -75,11 +75,14 @@ def perform_parameter_search(model_class, flags,
         # generate persona encoder sizes
         persona_encoder_sizes = [str(get_hidden_size()) for i in range(get_num_layers())]
         encoder_sizes = [str(get_hidden_size()) for i in range(get_num_layers())]
-        decoder_size = get_hidden_size()
+        decoder_sizes = [str(get_hidden_size()) for i in range(get_num_layers())]
+
+        # ensure first decoder layer is compatible with the last layer of the encoder
+        decoder_sizes[0] = encoder_sizes[-1]
 
         config["persona_encoder_sizes"] = persona_encoder_sizes
         config["encoder_sizes"] = encoder_sizes
-        config["decoder_units"] = decoder_size
+        config["decoder_sizes"] = decoder_sizes
 
         return config
 
