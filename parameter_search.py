@@ -54,10 +54,11 @@ def perform_parameter_search(model_class, flags,
     model = None
 
     flags.save_summary = False
+    flags.save_model = False
+    flags.run_eval = False
     flags.print_training = True
     flags.debug = False
     flags.use_epochs = True
-    flags.save_model = False
     flags.train_steps = num_steps_per_parameter
 
     def generate_parameter_config():

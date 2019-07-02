@@ -436,7 +436,7 @@ class Model(object):
                 if self.config.save_summary == True:
                     # record eval loss
                     # TODO re-enable eval after validation
-                    if self.global_step.numpy() % self.config.eval_frequency == 0 and False:
+                    if self.config.run_eval is True and self.global_step.numpy() % self.config.eval_frequency == 0:
                         with (tf.contrib.summary.
                                 always_record_summaries()):
                             # run eval
