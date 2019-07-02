@@ -14,7 +14,7 @@ def get_loguniform(low_exponent, high_exponent):
 def perform_parameter_search(model_class, flags,
         word2vec, id2word, word2id,
         parameter_ranges, training_data, 
-        num_steps_per_parameter=1000, 
+        num_epochs_per_parameter=1, 
         result_filepath="parameter_search_results.txt"):
     """ perform random parameter search
 
@@ -56,6 +56,8 @@ def perform_parameter_search(model_class, flags,
     flags.save_summary = False
     flags.print_training = True
     flags.debug = False
+    flags.use_epochs = True
+    flags.save_model = False
     flags.train_steps = num_steps_per_parameter
 
     def generate_parameter_config():
@@ -109,7 +111,7 @@ def perform_parameter_search(model_class, flags,
         # train
         try:
             loss, perplexity = model.train(training_data,
-                    None, num_steps_per_parameter, parameter_search=True)
+                    None, num_epochs=num_epochs_per_parameter, parameter_search=True)
 
             loss = loss.numpy()
             perplexity = perplexity.numpy()
