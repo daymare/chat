@@ -27,6 +27,18 @@ def lstm(units, name=None):
                 trainable=True,
                 name=name)
 
+def initialize_multilayer_hidden_state(layer_sizes):
+    hidden = []
+    for layer in range(len(layer_sizes)):
+        layer_size = layer_sizes[layer]
+        layer_hidden = [
+            tf.zeros((self.batch_size, layer_size)),
+            tf.zeros((Self.batch_size, layer_size))
+            ]
+        hidden.append(layer_hidden)
+
+    return hidden
+
 
 def gru(units):
     if tf.test.is_gpu_available():
@@ -94,14 +106,7 @@ class PersonaEncoder(tf.keras.Model):
         return outputs
 
     def initialize_hidden_state(self):
-        hidden = []
-        for layer in range(len(self.cells)):
-            layer_size = self.layer_sizes[layer]
-            layer_hidden = [tf.zeros((self.batch_size, layer_size)),
-                    tf.zeros((self.batch_size, layer_size))]
-            hidden.append(layer_hidden)
-
-        return hidden
+        return initialize_multilayer_hidden_state(self.layer_sizes)
 
 class Encoder(tf.keras.Model):
     def __init__(self, layer_sizes, batch_size, embedding):
@@ -135,14 +140,7 @@ class Encoder(tf.keras.Model):
         return output, layer_hidden
 
     def initialize_hidden_state(self):
-        hidden = []
-        for layer in range(len(self.cells)):
-            layer_size = self.layer_sizes[layer]
-            layer_hidden = [tf.zeros((self.batch_size, layer_size)),
-                tf.zeros((self.batch_size, layer_size))]
-            hidden.append(layer_hidden)
-
-        return hidden
+        return initialize_multilayer_hidden_state(self.layer_sizes)
 
 class Decoder(tf.keras.Model):
     def __init__(self, dec_units, vocab_size, batch_size, embedding):
