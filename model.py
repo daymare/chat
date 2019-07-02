@@ -295,8 +295,8 @@ class Model(object):
                 tf.train.latest_checkpoint(checkpoint_dir))
         print("global step after load: {}".format(self.global_step.numpy()))
 
-    def train(self, train_data, test_data, num_steps,
-            parameter_search=False):
+    def train(self, train_data, test_data, num_steps=-1, 
+            num_epochs=-1, parameter_search=False):
 
         # keep track of average loss for parameter search
         if parameter_search == True:
@@ -576,11 +576,15 @@ class Model(object):
                         file_prefix = self.config.checkpoint_dir)
 
                 # quit if we have done the correct number of steps
-                if self.global_step.numpy() >= num_steps and num_steps != -1:
+                if self.global_step.numpy() >= num_steps and num_steps != -1 and self.use_epochs is False:
                     quit = True
                     break
 
             self.epoch.assign_add(1)
+            
+            # quit if we have done the correct number of epochs
+            if self.use_epochs is True and self.epoch.numpy() >= num_epochs:
+                quit = True
 
         if parameter_search == True:
             recent_avg_loss = sum(loss_history) / len(loss_history)

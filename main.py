@@ -64,8 +64,12 @@ tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
 tf.app.flags.DEFINE_float('learning_rate',
         4*10**-3, 'learning rate during training')
-tf.app.flags.DEFINE_integer('train_steps',
-        -1, 'number of training steps to train for. if -1 then train until interrupted')
+tf.app.flags.DEFINE_bool('use_epochs', True,
+        'whether to measure epochs when deciding to stop training rather than number of steps')
+tf.app.flags.DEFINE_integer('epochs', -1,
+        'number of epochs to train for. if -1 then train until interrupted')
+tf.app.flags.DEFINE_integer('train_steps', -1, 
+        'number of training steps to train for. if -1 then train until interrupted')
 tf.app.flags.DEFINE_integer('batch_size',
         64, 'batch size')
 
