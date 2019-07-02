@@ -143,15 +143,20 @@ class Encoder(tf.keras.Model):
         return initialize_multilayer_hidden_state(self.layer_sizes)
 
 class Decoder(tf.keras.Model):
-    def __init__(self, dec_units, vocab_size, batch_size, embedding):
+    def __init__(self, layer_sizes, vocab_size, batch_size, embedding):
         super(Decoder, self).__init__()
         
         self.batch_size = batch_size
-        self.dec_units = dec_units
+        self.layer_sizes = layer_sizes
         self.embedding = embedding
-        self.cell = lstm(dec_units, "Decoder")
         self.projection_layer = tf.keras.layers.Dense(vocab_size,
                 name="projection")
+
+        self.cells = []
+        for i in range(len(layer_sizes)):
+            name = "Decoder_Layer{}".format(i)
+            size = layer_sizes[i]
+            self.cells.append(lstm(size, name))
 
         # attention stuff
         self.W1 = tf.keras.layers.Dense(self.dec_units, name="W1")
@@ -188,8 +193,16 @@ class Decoder(tf.keras.Model):
             x = tf.concat([context_vector, x], axis=-1)
 
 
-        output, dec_hidden1, dec_hidden2 = self.cell(x, hidden)
-        dec_hidden = [dec_hidden1, dec_hidden2]
+        # call decoder cells
+        for layer in range(len(self.cells)):
+            cell = self.cells[layer]
+            layer_hidden = hidden[layer]
+            output, hidden1, hidden2 = cell(x, layer_hidden)
+            layer_hidden = [hidden1, hidden2]
+
+            x = output
+
+        dec_hidden = layer_hidden
 
         # output shape: (batch_size, hidden_size)
         output = tf.reshape(output, (-1, output.shape[2]))
@@ -200,8 +213,7 @@ class Decoder(tf.keras.Model):
         return x, dec_hidden
 
     def initialize_hidden_state(self):
-        return [tf.zeros((self.batch_size, self.dec_units)),
-                tf.zeros((self.batch_size, self.dec_units))]
+        return initialize_multilayer_hidden_state(self.layer_sizes)
 
 
 class Model(object):
@@ -217,6 +229,7 @@ class Model(object):
 
         persona_encoder_sizes = [int(s_val) for s_val in config.persona_encoder_sizes]
         encoder_sizes = [int(s_val) for s_val in config.encoder_sizes]
+        decoder_sizes = [int(s_val) for s_val in config.decoder_sizes]
         
         # persona encoder
         if self.config.use_persona_encoder is True:
@@ -235,7 +248,7 @@ class Model(object):
 
         # decoder
         self.decoder = Decoder(
-                self.config.decoder_units, 
+                decoder_sizes, 
                 self.config.vocab_size,
                 self.config.batch_size,
                 embedding)

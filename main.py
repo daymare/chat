@@ -58,8 +58,8 @@ tf.app.flags.DEFINE_bool('use_persona_encoder', True,
         'whether to process persona information and feed to the decoder or not')
 tf.app.flags.DEFINE_list('persona_encoder_sizes', '139, 160, 655, 117',
         'size of each layer in the persona encoder')
-tf.app.flags.DEFINE_integer('decoder_units', 
-        205, 'size of the hidden layer in the decoder')
+tf.app.flags.DEFINE_list('decoder_sizes', '205',
+        'size of each layer in the decoder')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
 tf.app.flags.DEFINE_float('learning_rate',
