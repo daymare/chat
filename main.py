@@ -73,6 +73,10 @@ tf.app.flags.DEFINE_integer('train_steps', -1,
 tf.app.flags.DEFINE_integer('batch_size',
         64, 'batch size')
 
+# parameter search flags
+tf.app.flags.DEFINE_integer('parameter_search_epochs', 1,
+        'number of epochs to test each parameter for')
+
 # training flags
 tf.app.flags.DEFINE_boolean('save_summary',
         True, 'controls whether summaries are saved during training.')
@@ -220,12 +224,13 @@ def main(_):
         print("performing parameter search", flush=True)
         parameter_ranges = {}
         parameter_ranges["learning_rate"] = (-12, -2)
-        parameter_ranges["hidden_size"] = (100, 700)
+        parameter_ranges["hidden_size"] = (100, 1000)
         parameter_ranges["num_layers"] = (1, 5)
 
         perform_parameter_search(Model, config,
                 word2vec, id2word, word2id, parameter_ranges,
-                train_data)
+                train_data, 
+                num_epochs_per_parameter=config.parameter_search_epochs)
     # run inference
     elif config.run_inference == True:
         config.batch_size = 1
