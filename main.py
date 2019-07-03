@@ -74,6 +74,7 @@ tf.app.flags.DEFINE_integer('batch_size',
         64, 'batch size')
 
 # parameter search flags
+# TODO add flags for where to save files and parameter ranges
 tf.app.flags.DEFINE_integer('parameter_search_epochs', 1,
         'number of epochs to test each parameter for')
 

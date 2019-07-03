@@ -1,5 +1,7 @@
 import random
 import math
+import os
+import csv
 
 import tensorflow as tf
 
@@ -15,7 +17,7 @@ def perform_parameter_search(model_class, flags,
         word2vec, id2word, word2id,
         parameter_ranges, training_data, 
         num_epochs_per_parameter=1, 
-        result_filepath="parameter_search_results.txt"):
+        result_dir="parameter_search/"):
     """ perform random parameter search
 
     runs random parameter searches in the valid ranges until
@@ -37,22 +39,40 @@ def perform_parameter_search(model_class, flags,
         saves parameter configurations and their scores to file
     """
 
-    # open results file
-    result_file = open(result_filepath, "a")
+    # open results files
+    out_filepath = os.path.join(result_dir, "parameter_out.txt")
+    out_file = open(out_filepath, "w")
+
+    data_filepath = os.path.join(result_dir, "parameter_data.csv")
+    data_file = open(data_filepath, "w")
+    data_writer = csv.writer(data_file, delimiter=',', quotechar='"')
 
     # get parameter ranges
     learning_rate_range = None if "learning_rate" not in \
             parameter_ranges else \
             parameter_ranges["learning_rate"]
-
     hidden_size_range = None if "hidden_size" not in \
             parameter_ranges else parameter_ranges["hidden_size"]
-
     num_layers_range = None if "num_layers" not in \
             parameter_ranges else parameter_ranges["num_layers"]
-
     model = None
 
+    # print ranges to data file
+    row = ["learning rate low:", learning_rate_range[0],
+           "learning rate high:", learning_rate_range[1]]
+    data_writer.writerow(row)
+    row = ["hidden size low:", hidden_size_range[0],
+            "hidden size high:", hidden_size_range[1]]
+    data_writer.writerow(row)
+    row = ["num layers low:", num_layers_range[0],
+            "num layers high:", num_layers_range[1]]
+    data_writer.writerow(row)
+    row = ["epochs per config:", num_epochs_per_parameter]
+
+    # print header to data file
+    row = ["final_loss", "learning rate", "persona_encoder_sizes", "encoder_sizes", "decoder_sizes"]
+
+    # set config flags
     flags.save_summary = False
     flags.save_model = False
     flags.run_eval = False
@@ -94,7 +114,7 @@ def perform_parameter_search(model_class, flags,
         flags.learning_rate = config["learning_rate"]
         flags.persona_encoder_sizes = config["persona_encoder_sizes"]
         flags.encoder_sizes = config["encoder_sizes"]
-        flags.decoder_units = config["decoder_units"]
+        flags.decoder_units = config["decoder_sizes"]
 
         model = model_class(flags, word2vec, id2word, word2id)
 
@@ -130,6 +150,21 @@ def perform_parameter_search(model_class, flags,
             tests_since_last_best = 0
             best_loss_config = config
             best_loss = loss
+
+        # save data to data file
+        final_loss = loss
+        learning_rate = config["learning_rate"]
+        persona_encoder_sizes = config["persona_encoder_sizes"]
+        encoder_sizes = config["encoder_sizes"]
+        decoder_sizes = config["decoder_sizes"]
+        row = [
+            final_loss,
+            learning_rate,
+            persona_encoder_sizes,
+            encoder_sizes,
+            decoder_sizes
+            ]
+        data_writer.writerow(row)
 
         # output results
         def print_std_and_file(result_file, text):
