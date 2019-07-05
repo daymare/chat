@@ -114,7 +114,7 @@ def perform_parameter_search(model_class, flags,
         flags.learning_rate = config["learning_rate"]
         flags.persona_encoder_sizes = config["persona_encoder_sizes"]
         flags.encoder_sizes = config["encoder_sizes"]
-        flags.decoder_units = config["decoder_sizes"]
+        flags.decoder_sizes = config["decoder_sizes"]
 
         model = model_class(flags, word2vec, id2word, word2id)
 
