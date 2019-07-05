@@ -6,6 +6,10 @@ import sys
 
 
 def tee_output(output_dir, output_prefix):
+    # ensure output dir exists
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+
     # ensure a unique filename
     postfix_no = 0
     base_name = os.path.join(output_dir, output_prefix)
