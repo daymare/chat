@@ -39,6 +39,9 @@ def perform_parameter_search(model_class, flags,
         saves parameter configurations and their scores to file
     """
 
+    # create results dir if it doesn't exist
+    if not os.path.exists(result_dir):
+        os.mkdir(result_dir)
     # open results files
     out_filepath = os.path.join(result_dir, "parameter_out.txt")
     out_file = open(out_filepath, "w")
