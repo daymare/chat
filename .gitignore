@@ -3,9 +3,10 @@ __pycache__/
 *.pyc
 *out*
 *.swp
+*.csv
 results/
 nmt/
 train/
 tensorflow
-parameter_search_results.txt
+parameter_search/parameter_out.txt
 best_parameters.txt
