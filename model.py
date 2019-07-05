@@ -27,13 +27,13 @@ def lstm(units, name=None):
                 trainable=True,
                 name=name)
 
-def initialize_multilayer_hidden_state(layer_sizes):
+def initialize_multilayer_hidden_state(layer_sizes, batch_size):
     hidden = []
     for layer in range(len(layer_sizes)):
         layer_size = layer_sizes[layer]
         layer_hidden = [
-            tf.zeros((self.batch_size, layer_size)),
-            tf.zeros((Self.batch_size, layer_size))
+            tf.zeros((batch_size, layer_size)),
+            tf.zeros((batch_size, layer_size))
             ]
         hidden.append(layer_hidden)
 
@@ -106,7 +106,7 @@ class PersonaEncoder(tf.keras.Model):
         return outputs
 
     def initialize_hidden_state(self):
-        return initialize_multilayer_hidden_state(self.layer_sizes)
+        return initialize_multilayer_hidden_state(self.layer_sizes, self.batch_size)
 
 class Encoder(tf.keras.Model):
     def __init__(self, layer_sizes, batch_size, embedding):
@@ -140,7 +140,7 @@ class Encoder(tf.keras.Model):
         return output, layer_hidden
 
     def initialize_hidden_state(self):
-        return initialize_multilayer_hidden_state(self.layer_sizes)
+        return initialize_multilayer_hidden_state(self.layer_sizes, self.batch_size)
 
 class Decoder(tf.keras.Model):
     def __init__(self, layer_sizes, vocab_size, batch_size, embedding):
@@ -213,7 +213,7 @@ class Decoder(tf.keras.Model):
         return x, dec_hidden
 
     def initialize_hidden_state(self):
-        return initialize_multilayer_hidden_state(self.layer_sizes)
+        return initialize_multilayer_hidden_state(self.layer_sizes, self.batch_size)
 
 
 class Model(object):
@@ -371,7 +371,8 @@ class Model(object):
                     last_enc_hidden = enc_hidden
 
                     # note that enc_hidden must be the same dim as decoder units
-                    dec_hidden = enc_hidden
+                    dec_hidden = self.decoder.initialize_hidden_state()
+                    dec_hidden[0] = last_enc_hidden
 
                     # process personas
                     if self.config.use_persona_encoder is True:
@@ -386,7 +387,6 @@ class Model(object):
                     model_response = [] # model response on index 0 for summary
                     for t in range(0, len(responses[0])):
                         # passing enc_output to the decoder
-                        # TODO re enable persona encoder
                         predictions, dec_hidden = self.decoder(
                                 dec_input,
                                 persona_embeddings,
