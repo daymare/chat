@@ -45,36 +45,41 @@ def perform_parameter_search(model_class, flags,
         os.mkdir(result_dir)
     # open results files
     out_filepath = os.path.join(result_dir, "parameter_out.txt")
-    out_file = open(out_filepath, "w")
+    out_file = open(out_filepath, "a")
+
 
     data_filepath = os.path.join(result_dir, "parameter_data.csv")
-    data_file = open(data_filepath, "w")
+    data_file_exists = os.path.exists(data_filepath)
+    data_file = open(data_filepath, "a")
     data_writer = csv.writer(data_file, delimiter=',', quotechar='"')
 
-    # get parameter ranges
-    learning_rate_range = None if "learning_rate" not in \
-            parameter_ranges else \
-            parameter_ranges["learning_rate"]
-    hidden_size_range = None if "hidden_size" not in \
-            parameter_ranges else parameter_ranges["hidden_size"]
-    num_layers_range = None if "num_layers" not in \
-            parameter_ranges else parameter_ranges["num_layers"]
-    model = None
+    if not data_file_exists:
+        # get parameter ranges
+        learning_rate_range = None if "learning_rate" not in \
+                parameter_ranges else \
+                parameter_ranges["learning_rate"]
+        hidden_size_range = None if "hidden_size" not in \
+                parameter_ranges else parameter_ranges["hidden_size"]
+        num_layers_range = None if "num_layers" not in \
+                parameter_ranges else parameter_ranges["num_layers"]
+        model = None
 
-    # print ranges to data file
-    row = ["learning rate low:", learning_rate_range[0],
-           "learning rate high:", learning_rate_range[1]]
-    data_writer.writerow(row)
-    row = ["hidden size low:", hidden_size_range[0],
-            "hidden size high:", hidden_size_range[1]]
-    data_writer.writerow(row)
-    row = ["num layers low:", num_layers_range[0],
-            "num layers high:", num_layers_range[1]]
-    data_writer.writerow(row)
-    row = ["epochs per config:", num_epochs_per_parameter]
+        # print ranges to data file
+        row = ["learning rate low:", learning_rate_range[0],
+               "learning rate high:", learning_rate_range[1]]
+        data_writer.writerow(row)
+        row = ["hidden size low:", hidden_size_range[0],
+                "hidden size high:", hidden_size_range[1]]
+        data_writer.writerow(row)
+        row = ["num layers low:", num_layers_range[0],
+                "num layers high:", num_layers_range[1]]
+        data_writer.writerow(row)
+        row = ["epochs per config:", num_epochs_per_parameter]
 
-    # print header to data file
-    row = ["final_loss", "learning rate", "persona_encoder_sizes", "encoder_sizes", "decoder_sizes"]
+        # print header to data file
+        row = ["final_loss", "learning rate", "persona_encoder_sizes", "encoder_sizes", "decoder_sizes"]
+        data_writer.writerow(row)
+        data_file.flush()
 
     # set config flags
     flags.save_summary = False
