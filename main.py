@@ -135,11 +135,6 @@ logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 #logging.basicConfig(stream=sys.stderr, level=logging.CRITICAL)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-# set random seeds for testing
-tf.set_random_seed(1) # for testing, remove after system has been verified
-random.seed(1) # for testing, remove after the system has been verified
-
-
 def main(_):
     # override checkpoint
     if config.checkpoint_dir == 'default':
