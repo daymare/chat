@@ -171,24 +171,25 @@ def perform_parameter_search(model_class, flags,
             decoder_sizes
             ]
         data_writer.writerow(row)
+        data_file.flush()
 
         # output results
-        def print_std_and_file(result_file, text):
+        def print_std_and_file(out_file, text):
             text += "\n"
-            result_file.write(text)
+            out_file.write(text)
             print(text, end='')
 
-        print_std_and_file(result_file, "\n\n")
-        print_std_and_file(result_file, "test_number: " + \
+        print_std_and_file(out_file, "\n\n")
+        print_std_and_file(out_file, "test_number: " + \
                 str(num_tests))
-        print_std_and_file(result_file, "memory usage (MB): {}"
+        print_std_and_file(out_file, "memory usage (MB): {}"
                 .format(BytesInUse().numpy() / 1000000))
-        print_std_and_file(result_file, "tests since last best: " + \
+        print_std_and_file(out_file, "tests since last best: " + \
                 str(tests_since_last_best))
-        print_std_and_file(result_file, "loss: " + str(loss) + \
+        print_std_and_file(out_file, "loss: " + str(loss) + \
                 " " + str(config))
-        print_std_and_file(result_file, "best loss: " + \
+        print_std_and_file(out_file, "best loss: " + \
                 str(best_loss) + " " + str(best_loss_config))
 
-        result_file.flush()
+        out_file.flush()
 
