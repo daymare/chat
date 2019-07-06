@@ -2,6 +2,7 @@ import random
 import math
 import os
 import csv
+import traceback
 
 import tensorflow as tf
 
@@ -142,7 +143,8 @@ def perform_parameter_search(model_class, flags,
 
             loss = loss.numpy()
             perplexity = perplexity.numpy()
-        except:
+        except Exception as e:
+            traceback.print_exc()
             loss, perplexity = math.inf, math.inf
 
         num_tests += 1
