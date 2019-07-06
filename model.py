@@ -159,8 +159,9 @@ class Decoder(tf.keras.Model):
             self.cells.append(lstm(size, name))
 
         # attention stuff
-        self.W1 = tf.keras.layers.Dense(self.dec_units, name="W1")
-        self.W2 = tf.keras.layers.Dense(self.dec_units, name="W2")
+        attention_units = self.layer_sizes[0]
+        self.W1 = tf.keras.layers.Dense(attention_units, name="W1")
+        self.W2 = tf.keras.layers.Dense(attention_units, name="W2")
         self.V = tf.keras.layers.Dense(1, name="V")
 
     def call(self, x, persona_embeddings, hidden, use_persona_encoder=False):
@@ -174,7 +175,8 @@ class Decoder(tf.keras.Model):
             persona_embeddings = tf.concat(persona_embedding_list, 2)
 
             # add time dimension to hidden state
-            concat_hidden = tf.concat(hidden, 1)
+            layer_hidden = hidden[0]
+            concat_hidden = tf.concat(layer_hidden, 1)
             hidden_w_time_axis = tf.expand_dims(concat_hidden, 1)
 
             # get scores
