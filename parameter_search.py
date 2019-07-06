@@ -39,6 +39,15 @@ def perform_parameter_search(model_class, flags,
         prints: parameter configurations and their scores
         saves parameter configurations and their scores to file
     """
+    # get parameter ranges
+    learning_rate_range = None if "learning_rate" not in \
+            parameter_ranges else \
+            parameter_ranges["learning_rate"]
+    hidden_size_range = None if "hidden_size" not in \
+            parameter_ranges else parameter_ranges["hidden_size"]
+    num_layers_range = None if "num_layers" not in \
+            parameter_ranges else parameter_ranges["num_layers"]
+    model = None
 
     # create results dir if it doesn't exist
     if not os.path.exists(result_dir):
@@ -54,16 +63,6 @@ def perform_parameter_search(model_class, flags,
     data_writer = csv.writer(data_file, delimiter=',', quotechar='"')
 
     if not data_file_exists:
-        # get parameter ranges
-        learning_rate_range = None if "learning_rate" not in \
-                parameter_ranges else \
-                parameter_ranges["learning_rate"]
-        hidden_size_range = None if "hidden_size" not in \
-                parameter_ranges else parameter_ranges["hidden_size"]
-        num_layers_range = None if "num_layers" not in \
-                parameter_ranges else parameter_ranges["num_layers"]
-        model = None
-
         # print ranges to data file
         row = ["learning rate low:", learning_rate_range[0],
                "learning rate high:", learning_rate_range[1]]
