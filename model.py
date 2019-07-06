@@ -258,10 +258,6 @@ class Model(object):
                 self.config.batch_size,
                 embedding)
 
-        # layer for translating from encoder hidden
-        # to decoder hidden
-        self.enc_dec_layer = tf.keras.layers.Dense(self.config.decoder_units)
-
         # optimizer and loss function
         self.optimizer = optimizer = \
             tf.train.AdamOptimizer(learning_rate=config.learning_rate)
