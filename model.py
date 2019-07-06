@@ -196,15 +196,18 @@ class Decoder(tf.keras.Model):
 
 
         # call decoder cells
+        new_hidden = []
         for layer in range(len(self.cells)):
             cell = self.cells[layer]
             layer_hidden = hidden[layer]
             output, hidden1, hidden2 = cell(x, layer_hidden)
             layer_hidden = [hidden1, hidden2]
 
+            new_hidden.append(layer_hidden)
+
             x = output
 
-        dec_hidden = layer_hidden
+        dec_hidden = new_hidden
 
         # output shape: (batch_size, hidden_size)
         output = tf.reshape(output, (-1, output.shape[2]))
