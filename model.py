@@ -530,7 +530,8 @@ class Model(object):
                                 tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Kernel", kernel)
                                 tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_ReccurentKernel", recurrent_kernel)
                                 tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Bias", bias)
-                        #record_histograms(self.persona_encoder.cells, "PersonaEncoder")
+                        if self.config.use_persona_encoder is True:
+                            record_histograms(self.persona_encoder.cells, "PersonaEncoder")
                         record_histograms(self.encoder.cells, "Encoder")
 
                         tf.contrib.summary.histogram("encoder_final_hidden", enc_hidden)
