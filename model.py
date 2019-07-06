@@ -533,6 +533,7 @@ class Model(object):
                         if self.config.use_persona_encoder is True:
                             record_histograms(self.persona_encoder.cells, "PersonaEncoder")
                         record_histograms(self.encoder.cells, "Encoder")
+                        record_histograms(self.decoder.cells, "Decoder")
 
                         tf.contrib.summary.histogram("encoder_final_hidden", enc_hidden)
 
@@ -552,11 +553,6 @@ class Model(object):
 
                         tf.contrib.summary.histogram("decoder_projection_kernel", projection_kernel)
                         tf.contrib.summary.histogram("decoder_projection_bias", projection_bias)
-
-                        kernel, recurrent_kernel, bias = self.decoder.cell.variables
-                        tf.contrib.summary.histogram("decoder_kernel", kernel)
-                        tf.contrib.summary.histogram("decoder_recurrentkernel", recurrent_kernel)
-                        tf.contrib.summary.histogram("decoder_bias", bias)
 
                         # gradient histograms
                         for i in range(len(variables)):
