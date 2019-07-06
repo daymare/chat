@@ -135,10 +135,10 @@ def perform_parameter_search(model_class, flags,
     # test parameter configs
     while True:
         config = generate_parameter_config()
-        model = apply_parameter_config(config)
 
         # train
         try:
+            model = apply_parameter_config(config)
             loss, perplexity = model.train(training_data,
                     None, num_epochs=num_epochs_per_parameter, parameter_search=True)
 
