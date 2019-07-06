@@ -585,14 +585,14 @@ class Model(object):
                         file_prefix = self.config.checkpoint_dir)
 
                 # quit if we have done the correct number of steps
-                if self.global_step.numpy() >= num_steps and num_steps != -1 and self.use_epochs is False:
+                if self.global_step.numpy() >= num_steps and num_steps != -1 and self.config.use_epochs is False:
                     quit = True
                     break
 
             self.epoch.assign_add(1)
             
             # quit if we have done the correct number of epochs
-            if self.use_epochs is True and self.epoch.numpy() >= num_epochs:
+            if self.config.use_epochs is True and self.epoch.numpy() >= num_epochs:
                 quit = True
 
         if parameter_search == True:
