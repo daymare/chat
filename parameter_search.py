@@ -80,10 +80,11 @@ def perform_parameter_search(model_class, flags,
     flags.save_summary = False
     flags.save_model = False
     flags.run_eval = False
+    flags.use_persona_encoder = True
     flags.print_training = True
     flags.debug = False
     flags.use_epochs = True
-    flags.train_steps = num_steps_per_parameter
+    flags.epochs = num_epochs_per_parameter
 
     def generate_parameter_config():
         config = {}
