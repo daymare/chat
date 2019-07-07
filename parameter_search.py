@@ -1,6 +1,7 @@
 import random
 import math
 import os
+import gc
 import csv
 import traceback
 
@@ -142,6 +143,7 @@ def perform_parameter_search(model_class, flags,
 
         # train
         try:
+            gc.collect()
             model = apply_parameter_config(config)
             loss, perplexity = model.train(training_data,
                     None, num_epochs=num_epochs_per_parameter, parameter_search=True)
@@ -151,6 +153,8 @@ def perform_parameter_search(model_class, flags,
         except Exception as e:
             traceback.print_exc()
             loss, perplexity = math.inf, math.inf
+            # run garbage collector to clean up any lost variables
+            gc.collect() 
 
         num_tests += 1
         tests_since_last_best += 1
