@@ -75,7 +75,7 @@ tf.app.flags.DEFINE_integer('batch_size',
 
 # parameter search flags
 # TODO add flags for where to save files and parameter ranges
-tf.app.flags.DEFINE_integer('parameter_search_epochs', 1,
+tf.app.flags.DEFINE_integer('parameter_search_epochs', 5,
         'number of epochs to test each parameter for')
 
 # training flags
@@ -221,9 +221,9 @@ def main(_):
     if config.parameter_search == True:
         print("performing parameter search", flush=True)
         parameter_ranges = {}
-        parameter_ranges["learning_rate"] = (-12, -2)
-        parameter_ranges["hidden_size"] = (100, 1000)
-        parameter_ranges["num_layers"] = (1, 5)
+        parameter_ranges["learning_rate"] = (-5, -2)
+        parameter_ranges["hidden_size"] = (250, 950)
+        parameter_ranges["num_layers"] = (2, 4)
 
         perform_parameter_search(Model, config,
                 word2vec, id2word, word2id, parameter_ranges,
