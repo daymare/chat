@@ -62,8 +62,8 @@ class LayerSandwichStatistics:
             num_layers.append(len(layer_sizes))
 
             for i in range(len(layer_sizes)):
-                if len(layer_sizes) < i+1:
-                    layer_sizes.append([])
+                if len(layers_sizes) < i+1:
+                    layers_sizes.append([])
                 layers_sizes[i].append(layer_sizes[i])
 
         # get statistics of each thing
