@@ -11,4 +11,5 @@ nmt/
 train/
 tensorflow
 parameter_search/parameter_out.txt
+parameter_search/results/
 best_parameters.txt
