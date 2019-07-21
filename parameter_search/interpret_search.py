@@ -130,7 +130,7 @@ def interpret_search(data_filepath):
     ## calculate statistics
     # grab out the best percentile percent of the losses
     # remember that lower loss is better
-    percentile = 20
+    percentile = 10
     losses = [point.loss for point in datapoints]
     percentile_value = np.percentile(losses, percentile)
 
