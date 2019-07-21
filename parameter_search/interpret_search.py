@@ -62,8 +62,8 @@ class LayerSandwichStatistics:
             num_layers.append(len(layer_sizes))
 
             for i in range(len(layer_sizes)):
-                if len(layer_sizes) < i+1:
-                    layer_sizes.append([])
+                if len(layers_sizes) < i+1:
+                    layers_sizes.append([])
                 layers_sizes[i].append(layer_sizes[i])
 
         # get statistics of each thing
@@ -86,8 +86,6 @@ def display_layer_statistics(best_points, max_layers):
         layers_sizes = layer_stats.layers_sizes
         for i in range(len(layers_sizes)):
             axis[layer_index, 1+i].boxplot(layers_sizes[i])
-            axis[layer_index, 1+i].set_title(layer_name + 
-                    " layer {}".format(i))
 
     # get statistics
     pe_stats, encoder_stats, decoder_stats = \
