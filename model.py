@@ -373,7 +373,7 @@ class Model(object):
 
                     # note that enc_hidden must be the same dim as decoder units
                     dec_hidden = self.decoder.initialize_hidden_state()
-                    dec_hidden[0] = last_enc_hidden
+                    dec_hidden[0] = enc_hidden
 
                     # process personas
                     if self.config.use_persona_encoder is True:
@@ -651,6 +651,41 @@ class Model(object):
             avg_ppl = total_ppl / num_samples
             
             return avg_loss, avg_ppl
+
+    def call(self, inputs, personas=None, reset=False):
+        """ model call for all purposes.
+            Supports inference, eval, and training.
+
+            Should basically be __call__ except with support for
+            training (IE batched input output)
+
+            Should I add a flag for training?
+            Probably want to avoid that if at all possible.
+        """
+        # TODO replace __call__ code with a call to this function
+
+        # encode persona
+        if self.config.use_persona_encoder is True and personas is not None:
+            persona_embeddings = self.persona_encoder(personas)
+        else:
+            persona_embeddings = None
+
+        # setup encoder hidden state
+        if reset == True or self.encoder_cache is None:
+            enc_hidden = self.encoder.initialize_hidden_state()
+        else:
+            enc_hidden = self.encoder_cache
+
+        # run encoder
+        _, enc_hidden = self.encoder(inputs, enc_hidden)
+
+        # run decoder
+        dec_hidden = self.decoder.initialize_hidden_state()
+        dec_hidden[0] = last_enc_
+
+        # run encoder on our output
+
+        # return results
 
     def __call__(self, inputs, persona=None, reset=False):
         """ perform inference on inputs
