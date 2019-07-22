@@ -286,7 +286,6 @@ class Model(object):
                     global_step = self.global_step,
                     epoch = self.epoch)
 
-
     def loss_function(self, real, pred):
         loss_ = tf.nn.sparse_softmax_cross_entropy_with_logits(
                 labels=real, logits=pred)
@@ -342,7 +341,6 @@ class Model(object):
                 start = time.time()
 
                 with tf.GradientTape() as tape:
-                    hidden = self.encoder.initialize_hidden_state()
                     loss = 0.0
                     ppl = 0.0
 
@@ -357,6 +355,8 @@ class Model(object):
                     tape.watch(personas)
                     tape.watch(responses)
 
+                    # run encoder
+                    hidden = self.encoder.initialize_hidden_state()
                     _, enc_hidden = self.encoder(sentences, hidden)
 
                     # calculate cosine similarity between last two enc_hidden outputs
@@ -371,7 +371,8 @@ class Model(object):
                         enc_hidden_cos_similarity = 0.0
                     last_enc_hidden = enc_hidden
 
-                    # note that enc_hidden must be the same dim as decoder units
+                    # note that enc_hidden must be the same dim as
+                    # the first layer of the decoder
                     dec_hidden = self.decoder.initialize_hidden_state()
                     dec_hidden[0] = enc_hidden
 
@@ -602,9 +603,6 @@ class Model(object):
             return recent_avg_loss, recent_avg_ppl
 
     def eval(self, test_data):
-        # TODO share more code between eval and train. 
-        # Lots of repeated code between the two and it is introducing bugs when stuff in train gets changed.
-        # also TODO update eval to match train changes
         """ get loss on eval set
         """
         total_loss = 0.0
@@ -652,7 +650,7 @@ class Model(object):
             
             return avg_loss, avg_ppl
 
-    def call(self, inputs, personas=None, reset=False):
+    def call(self, inputs, expected_outputs=None, personas=None, reset=False):
         """ model call for all purposes.
             Supports inference, eval, and training.
 
@@ -661,31 +659,71 @@ class Model(object):
 
             Should I add a flag for training?
             Probably want to avoid that if at all possible.
+            Can't avoid. Needed for teacher forcing.
+
+            Eval needs to cache stuff and training does not
+            flag for caching?
+            Add caching later? Add caching later.
         """
         # TODO replace __call__ code with a call to this function
+        # TODO add debugging stuff that exists in train. If possible
+        # try to keep this function clean of the actual code and just
+        # pass back what is needed
 
         # encode persona
         if self.config.use_persona_encoder is True and personas is not None:
             persona_embeddings = self.persona_encoder(personas)
         else:
-            persona_embeddings = None
-
-        # setup encoder hidden state
-        if reset == True or self.encoder_cache is None:
-            enc_hidden = self.encoder.initialize_hidden_state()
-        else:
-            enc_hidden = self.encoder_cache
+            # TODO might be an error here when self.persona_embeddings is not initialized
+            persona_embeddings = self.persona_embeddings
 
         # run encoder
-        _, enc_hidden = self.encoder(inputs, enc_hidden)
+        enc_hidden = self.encoder.initialize_hidden_state()
+        _, enc_hidden = self.encoder(inputs, hidden)
+
+        # setup decoder hidden state
+        # note that enc_hidden must be the same dimension as the first layer 
+        # of the decoder
+        dec_hidden = self.decoder.initialize_hidden_state()
+        dec_hidden[0] = enc_hidden
 
         # run decoder
-        dec_hidden = self.decoder.initialize_hidden_state()
-        dec_hidden[0] = last_enc_
+        # if outputs are available teacher forcing will be used
+        if expected_outputs is not None:
+            decoder_limit = len(expected_outputs[0]) - 1
+        else:
+            decoder_limit = self.config.max_sentence_len - 1
 
-        # run encoder on our output
+        dec_input = tf.expand_dims(
+                [self.word2id['<start>']] * self.config.batch_size,
+                1)
+
+        dec_outputs = []
+        for t in range(0, decoder_limit):
+            # process a word
+            predictions, dec_hidden = self.decoder(
+                    dec_input,
+                    persona_embeddings,
+                    dec_hidden,
+                    self.config.use_persona_encoder)
+            
+            # predictions shape (batch_size, dict_size)
+            # output shape (decoder_limit, batch_size, dict_size)
+            dec_outputs.append(predictions)
+
+            # teacher forcing?
+            if expected_outputs is not None:
+                dec_input = tf.expand_dims(responses[:, t], 1)
+            else:
+                # TODO
+                # for inference
+                pass
+
+            # don't forget to check for <end> here during inference
+            # TODO
 
         # return results
+        return dec_outputs
 
     def __call__(self, inputs, persona=None, reset=False):
         """ perform inference on inputs
