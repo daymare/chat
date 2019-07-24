@@ -10,6 +10,8 @@ import tensorflow as tf
 import numpy as np
 
 from util.train_util import get_batch_iterator
+from util.train_util import get_loss
+from util.train_util import calculate_hidden_cos_similarity
 
 
 def lstm(units, name=None):
@@ -341,9 +343,6 @@ class Model(object):
                 start = time.time()
 
                 with tf.GradientTape() as tape:
-                    loss = 0.0
-                    ppl = 0.0
-
                     # split out batch
                     personas, sentences, responses = batch
 
@@ -355,59 +354,23 @@ class Model(object):
                     tape.watch(personas)
                     tape.watch(responses)
 
-                    # run encoder
-                    hidden = self.encoder.initialize_hidden_state()
-                    _, enc_hidden = self.encoder(sentences, hidden)
+                    # predictions shape (predicted_words, batch_size, vocab_len)
+                    predictions, logging_info = self.call(sentences, responses, personas)
 
                     # calculate cosine similarity between last two enc_hidden outputs
                     # this is to check that input is being processed meaningfully
-                    if last_enc_hidden is not None:
-                        a = enc_hidden[1][0]
-                        b = last_enc_hidden[1][0]
-                        normalize_a = tf.nn.l2_normalize(a, 0)
-                        normalize_b = tf.nn.l2_normalize(b, 0)
-                        enc_hidden_cos_similarity = tf.reduce_sum(tf.multiply(normalize_a, normalize_b))
-                    else:
-                        enc_hidden_cos_similarity = 0.0
+                    enc_hidden = logging_info["enc_hidden"]
+                    enc_hidden_cos_similarity = calculate_hidden_cos_similarity(enc_hidden, last_enc_hidden)
                     last_enc_hidden = enc_hidden
 
-                    # note that enc_hidden must be the same dim as
-                    # the first layer of the decoder
-                    dec_hidden = self.decoder.initialize_hidden_state()
-                    dec_hidden[0] = enc_hidden
+                    # calculate loss and ppl
+                    loss, ppl = get_loss(predictions, responses, self.loss_function)
 
-                    # process personas
-                    if self.config.use_persona_encoder is True:
-                        persona_embeddings = self.persona_encoder(personas)
-                    else:
-                        persona_embeddings = None
-
-                    dec_input = tf.expand_dims([self.word2id[
-                        '<start>']] * self.config.batch_size, 1)
-
-                    # Teacher forcing - feed the target as the next input
-                    model_response = [] # model response on index 0 for summary
-                    for t in range(0, len(responses[0])):
-                        # passing enc_output to the decoder
-                        predictions, dec_hidden = self.decoder(
-                                dec_input,
-                                persona_embeddings,
-                                dec_hidden,
-                                self.config.use_persona_encoder)
-
-                        sample_loss, sample_ppl = \
-                            self.loss_function(responses[:, t], predictions)
-
-                        # get model response
-                        predicted_id = tf.argmax(predictions[0]).numpy()
+                    # get model responses
+                    model_response = []
+                    for t in range(len(predictions)):
+                        predicted_id = tf.argmax(predictions[0][0]).numpy()
                         model_response.append(predicted_id)
-
-                        loss += sample_loss
-                        ppl += sample_ppl
-
-                        # using teacher forcing
-                        dec_input = tf.expand_dims(responses[:, t], 1)
-
 
                 batch_loss = loss
                 batch_ppl = ppl
@@ -650,7 +613,7 @@ class Model(object):
             
             return avg_loss, avg_ppl
 
-    def call(self, inputs, expected_outputs=None, personas=None, reset=False):
+    def call(self, inputs, expected_outputs=None, personas=None):
         """ model call for all purposes.
             Supports inference, eval, and training.
 
@@ -666,9 +629,8 @@ class Model(object):
             Add caching later? Add caching later.
         """
         # TODO replace __call__ code with a call to this function
-        # TODO add debugging stuff that exists in train. If possible
-        # try to keep this function clean of the actual code and just
-        # pass back what is needed
+
+        logging_info = {}
 
         # encode persona
         if self.config.use_persona_encoder is True and personas is not None:
@@ -679,7 +641,9 @@ class Model(object):
 
         # run encoder
         enc_hidden = self.encoder.initialize_hidden_state()
-        _, enc_hidden = self.encoder(inputs, hidden)
+        _, enc_hidden = self.encoder(inputs, enc_hidden)
+
+        logging_info["enc_hidden"] = enc_hidden
 
         # setup decoder hidden state
         # note that enc_hidden must be the same dimension as the first layer 
@@ -699,6 +663,7 @@ class Model(object):
                 1)
 
         dec_outputs = []
+        # TODO double check there isn't an off by one error here somewhere
         for t in range(0, decoder_limit):
             # process a word
             predictions, dec_hidden = self.decoder(
@@ -713,7 +678,7 @@ class Model(object):
 
             # teacher forcing?
             if expected_outputs is not None:
-                dec_input = tf.expand_dims(responses[:, t], 1)
+                dec_input = tf.expand_dims(expected_outputs[:, t], 1)
             else:
                 # TODO
                 # for inference
@@ -723,7 +688,7 @@ class Model(object):
             # TODO
 
         # return results
-        return dec_outputs
+        return dec_outputs, logging_info
 
     def __call__(self, inputs, persona=None, reset=False):
         """ perform inference on inputs

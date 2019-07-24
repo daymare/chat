@@ -237,3 +237,43 @@ def get_sample_iterator(dataset, word2id):
                 chat_index, sample_index)
 
 
+
+def get_loss(predictions, responses, loss_fn):
+    """ get the loss between a distribution and a given response calculated from
+        the given loss function.
+    """
+    # TODO double check there isn't an off by one error here somewhere
+    loss = 0.0
+    ppl = 0.0
+    for t in range(len(predictions)):
+        # TODO double check responses and predictions are actually getting indexed the way we want
+        sample_loss, sample_ppl = \
+                loss_fn(responses[:, t], predictions[t])
+
+        loss += sample_loss
+        ppl += sample_ppl
+
+    return loss, ppl
+
+def calculate_hidden_cos_similarity(hidden1, hidden2):
+    """ calculate the cos similarity between two hidden states
+
+        Notes:
+            Only uses the second hidden state vector.
+            Returns 0.0 if either hidden states are None
+    """
+    if hidden1 is None or hidden2 is None:
+        return 0.0
+
+    a = hidden1[1][0]
+    b = hidden2[1][0]
+    normalized_a = tf.nn.l2_normalize(a, 0)
+    normalized_b = tf.nn.l2_normalize(b, 0)
+    cos_similarity = tf.reduce_sum(tf.multiply(normalized_a, normalized_b))
+
+    return cos_similarity
+
+
+
+
+
