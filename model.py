@@ -234,9 +234,14 @@ class Model(object):
                 weights=word2vec,
                 trainable=True)
 
+        # get model sizes
         persona_encoder_sizes = [int(s_val) for s_val in config.persona_encoder_sizes]
         encoder_sizes = [int(s_val) for s_val in config.encoder_sizes]
         decoder_sizes = [int(s_val) for s_val in config.decoder_sizes]
+
+        # ensure encoder and decoder are compatible
+        assert encoder_sizes[-1] == decoder_sizes[0], \
+                "encoder is not compatible with decoder"
         
         # persona encoder
         if self.config.use_persona_encoder is True:
