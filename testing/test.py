@@ -1,5 +1,7 @@
 """ file for unit testing
 """
+# TODO add "check that inference runs" test
+# TODO add "check that eval runs" test
 
 import random
 import logging
@@ -17,11 +19,29 @@ def run_all_tests(config, train_data, word2vec, id2word, word2id):
     tf.random.set_random_seed(284586569)
     random.seed(206738548)
 
+    check_training_runs(config, train_data, word2vec, id2word, word2id)
+
     all_weights_updated_test(config, train_data, word2vec, id2word, word2id)
 
 
 ## Tests
+def check_training_runs(config, train_data, word2vec, id2word, word2id):
+    """ run training for a few steps to ensure it does not crash
+            more of a development aid than anything really
+    """
+    logging.debug('running training check')
+
+    tf.reset_default_graph()
+    model = Model(config, word2vec, id2word, word2id)
+
+    model.train(train_data, None, 5)
+
+    logging.debug('finished training check')
+
 def all_weights_updated_test(config, train_data, word2vec, id2word, word2id):
+    """ run a single train step and ensure that each value in trainable 
+            variables was updated
+    """
     logging.debug('running all weights updated test')
 
     # init model
@@ -40,6 +60,8 @@ def all_weights_updated_test(config, train_data, word2vec, id2word, word2id):
     for i in range(len(before)):
         b = before[i]
         a = after[i]
+        print("before: {}".format(b))
+        print("after: {}".format(a))
         assert (b != a), "test found a weight that was not updated!"
 
     logging.debug('finished all weights updated test')
