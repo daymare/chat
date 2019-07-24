@@ -18,6 +18,7 @@ from model import Model
 
 from parameter_search import perform_parameter_search
 
+from testing.test import run_all_tests
 
 
 # set eager to allow growth
@@ -105,7 +106,7 @@ tf.app.flags.DEFINE_boolean('load_model',
 tf.app.flags.DEFINE_boolean('debug', 
         False, 'run in debug mode?')
 tf.app.flags.DEFINE_string('mode',
-        'train', 'what mode to run in. Available modes are train, inference, data_viz, parameter_search, and unit_test')
+        'unit_test', 'what mode to run in. Available modes are train, inference, data_viz, parameter_search, and unit_test')
 
 # runtime "flags"
 # computed at runtime
@@ -236,8 +237,8 @@ def main(_):
         logging.debug('training model')
         model.train(train_data, test_data, config.train_steps)
     elif config.mode == "unit_test":
-        # TODO
-        pass
+        logging.debug('running unit tests')
+        run_all_tests(config, train_data, word2vec, id2word, word2id)
     else:
         print("invalid mode! Exiting.")
 
