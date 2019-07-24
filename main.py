@@ -96,7 +96,7 @@ tf.app.flags.DEFINE_boolean('save_model',
 tf.app.flags.DEFINE_string('checkpoint_dir',
         'default', 'where to save and load the model. If default then set at runtime to logdir/model_save')
 tf.app.flags.DEFINE_string('logdir',
-        './train/parameter_search', 'where to save tensorboard summaries')
+        './train/testing', 'where to save tensorboard summaries')
 tf.app.flags.DEFINE_boolean('load_model',
         True, 
         'whether to load the model from file or not for training.')
@@ -104,13 +104,8 @@ tf.app.flags.DEFINE_boolean('load_model',
 # control flags
 tf.app.flags.DEFINE_boolean('debug', 
         False, 'run in debug mode?')
-tf.app.flags.DEFINE_boolean('run_inference',
-        False, 'run inference instead of training?')
-tf.app.flags.DEFINE_boolean('run_data_viz',
-        False, 'run dataset visualization instead of anything else')
-tf.app.flags.DEFINE_boolean('parameter_search',
-        True, 'run parameter search instead of training?')
-
+tf.app.flags.DEFINE_string('mode',
+        'train', 'what mode to run in. Available modes are train, inference, data_viz, parameter_search, and unit_test')
 
 # runtime "flags"
 # computed at runtime
@@ -183,7 +178,7 @@ def main(_):
 
     # convert dataset to integer ids
     print('converting dataset to ids')
-    if config.run_data_viz is False:
+    if config.mode != "data_viz":
         dataset = convert_to_id(dataset, word2id)
 
     # split into train and test
@@ -218,7 +213,7 @@ def main(_):
             print("no save folder exists. Continuing without loading model.")
 
     # perform parameter search
-    if config.parameter_search == True:
+    if config.mode == "parameter_search":
         print("performing parameter search", flush=True)
         parameter_ranges = {}
         parameter_ranges["learning_rate"] = (-5, -2)
@@ -230,16 +225,21 @@ def main(_):
                 train_data, 
                 num_epochs_per_parameter=config.parameter_search_epochs)
     # run inference
-    elif config.run_inference == True:
+    elif config.mode == "inference":
         config.batch_size = 1
         run_inference(dataset, config, word2id, word2vec, id2word, 1)
     # run data visualization
-    elif config.run_data_viz == True:
+    elif config.mode == "data_viz":
         look_at_data(train_data)
     # train model
-    else:
+    elif config.mode == "train":
         logging.debug('training model')
         model.train(train_data, test_data, config.train_steps)
+    elif config.mode == "unit_test":
+        # TODO
+        pass
+    else:
+        print("invalid mode! Exiting.")
 
 
 if __name__ == '__main__':
