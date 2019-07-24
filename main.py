@@ -213,9 +213,13 @@ def main(_):
         else:
             print("no save folder exists. Continuing without loading model.")
 
+    # ensure print outs in main get printed out before further logging debugs
+    # TODO change all logging type printouts to logging.debug calls
+    print("", flush=True) 
+
     # perform parameter search
     if config.mode == "parameter_search":
-        print("performing parameter search", flush=True)
+        logging.debug("performing parameter search")
         parameter_ranges = {}
         parameter_ranges["learning_rate"] = (-5, -2)
         parameter_ranges["hidden_size"] = (250, 950)
