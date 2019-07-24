@@ -535,15 +535,16 @@ class Model(object):
                                 pass
 
                 # print out progress
-                print('\n')
-                print('Epoch {}'.format(self.epoch + 1))
-                print('Batch {}'.format(self.global_step.numpy() + 1))
-                print('Memory usage (MB): {}'.format(tf.contrib.memory_stats.BytesInUse() / 1000000))
-                print('Max memory usage (MB): {}'.format(tf.contrib.memory_stats.MaxBytesInUse() / 1000000))
-                print('Loss: {:.4f}'.format(batch_loss.numpy()))
-                print('Perplexity: {:.4f}'.format(batch_ppl.numpy()))
-                print('Time taken for 1 step {} sec'.format(
-                    time.time() - start), flush=True)
+                if self.config.print_training == True:
+                    print('\n')
+                    print('Epoch {}'.format(self.epoch + 1))
+                    print('Batch {}'.format(self.global_step.numpy() + 1))
+                    print('Memory usage (MB): {}'.format(tf.contrib.memory_stats.BytesInUse() / 1000000))
+                    print('Max memory usage (MB): {}'.format(tf.contrib.memory_stats.MaxBytesInUse() / 1000000))
+                    print('Loss: {:.4f}'.format(batch_loss.numpy()))
+                    print('Perplexity: {:.4f}'.format(batch_ppl.numpy()))
+                    print('Time taken for 1 step {} sec'.format(
+                        time.time() - start), flush=True)
 
                 # save the model every x batches
                 if ((self.global_step.numpy() + 1) % self.config.model_save_interval == 0
