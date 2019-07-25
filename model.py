@@ -333,7 +333,7 @@ class Model(object):
                     # get model responses
                     model_response = []
                     for t in range(len(predictions)):
-                        predicted_id = tf.argmax(predictions[0][0]).numpy()
+                        predicted_id = tf.argmax(predictions[t][0]).numpy()
                         model_response.append(predicted_id)
 
                 batch_loss = loss
@@ -416,14 +416,8 @@ class Model(object):
                         conversation_words = []
                         for i in range(len(conversation)):
                             word = conversation[i]
-                            next_word = conversation[i+1]
+                            conversation_words.append(self.id2word[word])
 
-                            if i == len(conversation) - 2:
-                                break
-                            elif word.numpy() == 0 and next_word.numpy() == 0:
-                                break
-                            else:
-                                conversation_words.append(self.id2word[word])
                         conversation_text = tf.convert_to_tensor(" ".join(conversation_words))
                         tf.contrib.summary.generic('conversation', conversation_text, metadata=text_meta)
 
