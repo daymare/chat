@@ -51,15 +51,15 @@ tf.app.flags.DEFINE_string('embedding_fname',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_list('encoder_sizes', '200, 205',
+tf.app.flags.DEFINE_list('encoder_sizes', '200',
         'size of each layer in the encoder')
 tf.app.flags.DEFINE_boolean('input_independant', False,
         'whether to train without input')
 tf.app.flags.DEFINE_bool('use_persona_encoder', True,
         'whether to process persona information and feed to the decoder or not')
-tf.app.flags.DEFINE_list('persona_encoder_sizes', '139, 160, 655, 117',
+tf.app.flags.DEFINE_list('persona_encoder_sizes', '200',
         'size of each layer in the persona encoder')
-tf.app.flags.DEFINE_list('decoder_sizes', '205, 150',
+tf.app.flags.DEFINE_list('decoder_sizes', '200',
         'size of each layer in the decoder')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
@@ -72,7 +72,7 @@ tf.app.flags.DEFINE_integer('epochs', -1,
 tf.app.flags.DEFINE_integer('train_steps', -1, 
         'number of training steps to train for. if -1 then train until interrupted')
 tf.app.flags.DEFINE_integer('batch_size',
-        64, 'batch size')
+        1, 'batch size')
 
 # parameter search flags
 # TODO add flags for where to save files and parameter ranges
@@ -97,7 +97,7 @@ tf.app.flags.DEFINE_boolean('save_model',
 tf.app.flags.DEFINE_string('checkpoint_dir',
         'default', 'where to save and load the model. If default then set at runtime to logdir/model_save')
 tf.app.flags.DEFINE_string('logdir',
-        './train/testing', 'where to save tensorboard summaries')
+        './train/progressive_overfit/1', 'where to save tensorboard summaries')
 tf.app.flags.DEFINE_boolean('load_model',
         True, 
         'whether to load the model from file or not for training.')
@@ -106,7 +106,7 @@ tf.app.flags.DEFINE_boolean('load_model',
 tf.app.flags.DEFINE_boolean('debug', 
         False, 'run in debug mode?')
 tf.app.flags.DEFINE_string('mode',
-        'unit_test', 'what mode to run in. Available modes are train, inference, data_viz, parameter_search, and unit_test')
+        'train', 'what mode to run in. Available modes are train, inference, data_viz, parameter_search, and unit_test')
 
 # runtime "flags"
 # computed at runtime
@@ -188,8 +188,8 @@ def main(_):
     #random.shuffle(dataset)
     train_size = int(len(dataset) * 0.9)
 
-    train_data = dataset[:train_size]
-    #train_data = dataset[:1]
+    #train_data = dataset[:train_size]
+    train_data = dataset[:1]
     #train_data = dataset
     test_data = dataset[train_size:]
 
