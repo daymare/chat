@@ -97,7 +97,7 @@ tf.app.flags.DEFINE_boolean('save_model',
 tf.app.flags.DEFINE_string('checkpoint_dir',
         'default', 'where to save and load the model. If default then set at runtime to logdir/model_save')
 tf.app.flags.DEFINE_string('logdir',
-        './train/fix_model_change_dataset/1', 'where to save tensorboard summaries')
+        './train/fix_model_change_dataset/2', 'where to save tensorboard summaries')
 tf.app.flags.DEFINE_boolean('load_model',
         True, 
         'whether to load the model from file or not for training.')
@@ -189,7 +189,7 @@ def main(_):
     train_size = int(len(dataset) * 0.9)
 
     #train_data = dataset[:train_size]
-    train_data = dataset[:1]
+    train_data = dataset[:2]
     #train_data = dataset
     test_data = dataset[train_size:]
 
