@@ -9,6 +9,7 @@ results/
 notes/
 nmt/
 train/
+train_archive/
 tensorflow
 parameter_search/parameter_out.txt
 parameter_search/results/
