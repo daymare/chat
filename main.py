@@ -64,7 +64,7 @@ tf.app.flags.DEFINE_list('decoder_sizes', '200, 200',
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
 tf.app.flags.DEFINE_float('learning_rate',
-        4*10**-4, 'learning rate during training')
+        4*10**-5, 'learning rate during training')
 tf.app.flags.DEFINE_bool('use_epochs', True,
         'whether to measure epochs when deciding to stop training rather than number of steps')
 tf.app.flags.DEFINE_integer('epochs', -1,
@@ -97,7 +97,7 @@ tf.app.flags.DEFINE_boolean('save_model',
 tf.app.flags.DEFINE_string('checkpoint_dir',
         'default', 'where to save and load the model. If default then set at runtime to logdir/model_save')
 tf.app.flags.DEFINE_string('logdir',
-        './train/multilayer_debugging/lower_learning_rate', 'where to save tensorboard summaries')
+        './train/multilayer_debugging/e5_learning_rate', 'where to save tensorboard summaries')
 tf.app.flags.DEFINE_boolean('load_model',
         True, 
         'whether to load the model from file or not for training.')
