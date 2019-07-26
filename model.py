@@ -324,7 +324,8 @@ class Model(object):
                     # calculate cosine similarity between last two enc_hidden outputs
                     # this is to check that input is being processed meaningfully
                     enc_hidden = logging_info["enc_hidden"]
-                    enc_hidden_cos_similarity = calculate_hidden_cos_similarity(enc_hidden, last_enc_hidden)
+                    logging_info["enc_hidden_cos_similarity"] = \
+                            calculate_hidden_cos_similarity(enc_hidden, last_enc_hidden)
                     last_enc_hidden = enc_hidden
 
                     # calculate loss and ppl
@@ -361,131 +362,28 @@ class Model(object):
                     update_history(loss_history, batch_loss)
                     update_history(ppl_history, batch_ppl)
 
+                # run eval
+                if self.config.run_eval is True and \
+                        self.global_step.numpy() % self.config.eval_frequency == 0:
+                    eval_loss, eval_ppl = self.eval(test_data)
+                else:
+                    eval_loss = -1.0
+                    eval_ppl = -1.0
+
                 # record summaries
+                logging_info["eval_loss"] = eval_loss
+                logging_info["eval_ppl"] = eval_ppl
+                logging_info["batch_loss"] = batch_loss
+                logging_info["batch_ppl"] = batch_ppl
+                logging_info["personas"] = personas
+                logging_info["sentences"] = sentences
+                logging_info["responses"] = responses
+                logging_info["model_response"] = model_response
+                logging_info["variables"] = variables
+                logging_info["gradients"] = gradients
+
                 if self.config.save_summary == True:
-                    # record eval loss
-                    # TODO re-enable eval after validation
-                    if self.config.run_eval is True and self.global_step.numpy() % self.config.eval_frequency == 0:
-                        with (tf.contrib.summary.
-                                always_record_summaries()):
-                            # run eval
-                            print('Running Eval')
-                            eval_loss, eval_ppl = self.eval(test_data)
-
-                            # record eval performance
-                            print('Eval loss: {:.4f}'.format(eval_loss.numpy()))
-                            print('Eval perplexity: {:.4f}'.format(eval_ppl.numpy()))
-                            tf.contrib.summary.scalar('eval_loss', eval_loss)
-                            tf.contrib.summary.scalar('eval_ppl', eval_ppl)
-
-                    # record all other summaries
-                    with (tf.contrib.summary.record_summaries_every_n_global_steps(
-                                self.config.save_frequency)):
-                        # loss and perplexity
-                        tf.contrib.summary.scalar('loss', batch_loss)
-                        tf.contrib.summary.scalar('perplexity', batch_ppl)
-
-                        # enc hidden norm
-                        tf.contrib.summary.scalar('enc_hidden_0_norm', tf.norm(enc_hidden[0]))
-                        tf.contrib.summary.scalar('enc_hidden_1_norm', tf.norm(enc_hidden[1]))
-
-                        # enc hidden cosine similarity
-                        tf.contrib.summary.scalar('enc_hidden_cos_sim', enc_hidden_cos_similarity)
-
-                        # text output
-                        text_meta = tf.SummaryMetadata()
-                        text_meta.plugin_data.plugin_name = "text"
-
-                        # always take index 0 as our example output
-                        ## persona
-                        # personas shape: (batch size, max_persona_sentences, max_persona_sentence_len)
-                        persona = personas[0] # (max_persona_sentences, max_persona_sentence_len)
-                        persona_words = []
-                        for sentence in persona:
-                            for word in sentence:
-                                if word.numpy() == 0:
-                                    break
-                                else:
-                                    persona_words.append(self.id2word[word])
-                        persona_text = tf.convert_to_tensor(" ".join(persona_words))
-                        tf.contrib.summary.generic('persona', persona_text, metadata=text_meta)
-
-                        ## sentence
-                        # sentences shape: (batch_size, max_conversation_words)
-                        conversation = sentences[0]
-                        conversation_words = []
-                        for i in range(len(conversation)):
-                            word = conversation[i]
-                            conversation_words.append(self.id2word[word])
-
-                        conversation_text = tf.convert_to_tensor(" ".join(conversation_words))
-                        tf.contrib.summary.generic('conversation', conversation_text, metadata=text_meta)
-
-                        ## response
-                        # response shape: (batch_size, max_sentence_len)
-                        response = responses[0]
-                        response_words = []
-                        for word in response:
-                            if word.numpy() == 0:
-                                break
-                            else:
-                                response_words.append(self.id2word[word])
-                        response_text = tf.convert_to_tensor(" ".join(response_words))
-                        tf.contrib.summary.generic('response', response_text, metadata=text_meta)
-
-                        ## model response
-                        model_words = []
-                        for word in model_response:
-                            if word == 0:
-                                break
-                            else:
-                                model_words.append(self.id2word[word])
-                        model_text = tf.convert_to_tensor(" ".join(model_words))
-                        tf.contrib.summary.generic('model_response', model_text, metadata=text_meta)
-
-                        # model histograms
-                        # encoder
-                        def record_histograms(cells, name):
-                            for i in range(len(cells)):
-                                cell = cells[i]
-                                kernel, recurrent_kernel, bias = cell.variables
-                                tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Kernel", kernel)
-                                tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_ReccurentKernel", recurrent_kernel)
-                                tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Bias", bias)
-                        if self.config.use_persona_encoder is True:
-                            record_histograms(self.persona_encoder.cells, "PersonaEncoder")
-                        record_histograms(self.encoder.cells, "Encoder")
-                        record_histograms(self.decoder.cells, "Decoder")
-
-                        tf.contrib.summary.histogram("encoder_final_hidden", enc_hidden)
-
-                        ## decoder histograms
-                        projection_kernel, projection_bias = self.decoder.projection_layer.variables
-                        if self.config.use_persona_encoder is True:
-                            w1_kernel, w1_bias = self.decoder.W1.variables
-                            w2_kernel, w2_bias = self.decoder.W2.variables
-                            v_kernel, v_bias = self.decoder.V.variables
-
-                            tf.contrib.summary.histogram("decoder_w1_kernel", w1_kernel)
-                            tf.contrib.summary.histogram("decoder_w1_bias", w1_bias)
-                            tf.contrib.summary.histogram("decoder_w2_kernel", w2_kernel)
-                            tf.contrib.summary.histogram("decoder_w2_bias", w2_bias)
-                            tf.contrib.summary.histogram("decoder_v_kernel", v_kernel)
-                            tf.contrib.summary.histogram("decoder_v_bias", v_bias)
-
-                        tf.contrib.summary.histogram("decoder_projection_kernel", projection_kernel)
-                        tf.contrib.summary.histogram("decoder_projection_bias", projection_bias)
-
-                        # gradient histograms
-                        for i in range(len(variables)):
-                            variable = variables[i]
-                            gradient = gradients[i]
-
-                            try:
-                                tf.contrib.summary.histogram("{}_gradient".format(variable.name[:-2]), gradient)
-                                tf.contrib.summary.scalar("{}_gradient_mag".format(variable.name[:-2]), tf.norm(gradient))
-                            except Exception as e:
-                                pass
+                    self.record_summaries(logging_info)
 
                 # print out progress
                 if self.config.print_training == True:
@@ -713,6 +611,127 @@ class Model(object):
 
         # return result
         return str_result[:-1], id_result
+    
+    def record_summaries(self, logging_info):
+        li = logging_info
+
+        # record eval loss
+        if li["eval_loss"] > 0:
+            with (tf.contrib.summary.always_record_summaries()):
+                # record eval performance
+                print('Eval loss: {:.4f}'.format(li["eval_loss"].numpy()))
+                print('Eval perplexity: {:.4f}'.format(li["eval_ppl"].numpy()))
+                tf.contrib.summary.scalar('eval_loss', li["eval_loss"])
+                tf.contrib.summary.scalar('eval_ppl', li["eval_ppl"])
+
+        # record all other summaries
+        with (tf.contrib.summary.record_summaries_every_n_global_steps(
+                    self.config.save_frequency)):
+            # loss and perplexity
+            tf.contrib.summary.scalar('loss', li["batch_loss"])
+            tf.contrib.summary.scalar('perplexity', li["batch_ppl"])
+
+            # enc hidden norm
+            tf.contrib.summary.scalar('enc_hidden_0_norm', tf.norm(li["enc_hidden"][0]))
+            tf.contrib.summary.scalar('enc_hidden_1_norm', tf.norm(li["enc_hidden"][1]))
+
+            # enc hidden cosine similarity
+            tf.contrib.summary.scalar('enc_hidden_cos_sim', li["enc_hidden_cos_similarity"])
+
+            # text output
+            text_meta = tf.SummaryMetadata()
+            text_meta.plugin_data.plugin_name = "text"
+
+            # always take index 0 as our example output
+            ## persona
+            # personas shape: (batch size, max_persona_sentences, max_persona_sentence_len)
+            persona = li["personas"][0] # (max_persona_sentences, max_persona_sentence_len)
+            persona_words = []
+            for sentence in persona:
+                for word in sentence:
+                    if word.numpy() == 0:
+                        break
+                    else:
+                        persona_words.append(self.id2word[word])
+            persona_text = tf.convert_to_tensor(" ".join(persona_words))
+            tf.contrib.summary.generic('persona', persona_text, metadata=text_meta)
+
+            ## sentence
+            # sentences shape: (batch_size, max_conversation_words)
+            conversation = li["sentences"][0]
+            conversation_words = []
+            for i in range(len(conversation)):
+                word = conversation[i]
+                conversation_words.append(self.id2word[word])
+
+            conversation_text = tf.convert_to_tensor(" ".join(conversation_words))
+            tf.contrib.summary.generic('conversation', conversation_text, metadata=text_meta)
+
+            ## response
+            # response shape: (batch_size, max_sentence_len)
+            response = li["responses"][0]
+            response_words = []
+            for word in response:
+                if word.numpy() == 0:
+                    break
+                else:
+                    response_words.append(self.id2word[word])
+            response_text = tf.convert_to_tensor(" ".join(response_words))
+            tf.contrib.summary.generic('response', response_text, metadata=text_meta)
+
+            ## model response
+            model_words = []
+            for word in li["model_response"]:
+                if word == 0:
+                    break
+                else:
+                    model_words.append(self.id2word[word])
+            model_text = tf.convert_to_tensor(" ".join(model_words))
+            tf.contrib.summary.generic('model_response', model_text, metadata=text_meta)
+
+            # model histograms
+            # encoder
+            def record_histograms(cells, name):
+                for i in range(len(cells)):
+                    cell = cells[i]
+                    kernel, recurrent_kernel, bias = cell.variables
+                    tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Kernel", kernel)
+                    tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_ReccurentKernel", recurrent_kernel)
+                    tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Bias", bias)
+            if self.config.use_persona_encoder is True:
+                record_histograms(self.persona_encoder.cells, "PersonaEncoder")
+            record_histograms(self.encoder.cells, "Encoder")
+            record_histograms(self.decoder.cells, "Decoder")
+
+            tf.contrib.summary.histogram("encoder_final_hidden", li["enc_hidden"])
+
+            ## decoder histograms
+            projection_kernel, projection_bias = self.decoder.projection_layer.variables
+            if self.config.use_persona_encoder is True:
+                w1_kernel, w1_bias = self.decoder.W1.variables
+                w2_kernel, w2_bias = self.decoder.W2.variables
+                v_kernel, v_bias = self.decoder.V.variables
+
+                tf.contrib.summary.histogram("decoder_w1_kernel", w1_kernel)
+                tf.contrib.summary.histogram("decoder_w1_bias", w1_bias)
+                tf.contrib.summary.histogram("decoder_w2_kernel", w2_kernel)
+                tf.contrib.summary.histogram("decoder_w2_bias", w2_bias)
+                tf.contrib.summary.histogram("decoder_v_kernel", v_kernel)
+                tf.contrib.summary.histogram("decoder_v_bias", v_bias)
+
+            tf.contrib.summary.histogram("decoder_projection_kernel", projection_kernel)
+            tf.contrib.summary.histogram("decoder_projection_bias", projection_bias)
+
+            # gradient histograms
+            for i in range(len(li["variables"])):
+                variable = li["variables"][i]
+                gradient = li["gradients"][i]
+
+                try:
+                    tf.contrib.summary.histogram("{}_gradient".format(variable.name[:-2]), gradient)
+                    tf.contrib.summary.scalar("{}_gradient_mag".format(variable.name[:-2]), tf.norm(gradient))
+                except Exception as e:
+                    pass
 
 
 
