@@ -65,12 +65,6 @@ tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
 tf.app.flags.DEFINE_float('learning_rate',
         4*10**-3, 'learning rate during training')
-tf.app.flags.DEFINE_bool('use_epochs', True,
-        'whether to measure epochs when deciding to stop training rather than number of steps')
-tf.app.flags.DEFINE_integer('epochs', -1,
-        'number of epochs to train for. if -1 then train until interrupted')
-tf.app.flags.DEFINE_integer('train_steps', -1, 
-        'number of training steps to train for. if -1 then train until interrupted')
 tf.app.flags.DEFINE_integer('batch_size',
         2, 'batch size')
 
@@ -96,11 +90,19 @@ tf.app.flags.DEFINE_boolean('save_model',
         True, 'whether to save the model or not')
 tf.app.flags.DEFINE_string('checkpoint_dir',
         'default', 'where to save and load the model. If default then set at runtime to logdir/model_save')
-tf.app.flags.DEFINE_string('logdir',
-        './train/progressive_overfit/2', 'where to save tensorboard summaries')
 tf.app.flags.DEFINE_boolean('load_model',
         True, 
         'whether to load the model from file or not for training.')
+tf.app.flags.DEFINE_string('logdir',
+        './train/progressive_overfit/2', 'where to save tensorboard summaries')
+tf.app.flags.DEFINE_integer('dataset_size', 2, 
+        'number of samples to put in the dataset. -1 indicates 90/10 train test split')
+tf.app.flags.DEFINE_bool('use_epochs', True,
+        'whether to measure epochs when deciding to stop training rather than number of steps')
+tf.app.flags.DEFINE_integer('epochs', -1,
+        'number of epochs to train for. if -1 then train until interrupted')
+tf.app.flags.DEFINE_integer('train_steps', -1, 
+        'number of training steps to train for. if -1 then train until interrupted')
 
 # control flags
 tf.app.flags.DEFINE_boolean('debug', 
@@ -186,11 +188,13 @@ def main(_):
     # TODO make split ratio into a parameter
     print('splitting dataset')
     #random.shuffle(dataset)
-    train_size = int(len(dataset) * 0.9)
 
-    #train_data = dataset[:train_size]
-    train_data = dataset[:2]
-    #train_data = dataset
+    if config.dataset_size < 0:
+        train_size = int(len(dataset) * 0.9)
+    else:
+        train_size = config.dataset_size
+    
+    train_data = dataset[:train_size]
     test_data = dataset[train_size:]
 
     # setup debugger
