@@ -51,20 +51,20 @@ tf.app.flags.DEFINE_string('embedding_fname',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_list('encoder_sizes', '200, 200',
+tf.app.flags.DEFINE_list('encoder_sizes', '400',
         'size of each layer in the encoder')
 tf.app.flags.DEFINE_boolean('input_independant', True,
         'whether to train without input')
 tf.app.flags.DEFINE_bool('use_persona_encoder', True,
         'whether to process persona information and feed to the decoder or not')
-tf.app.flags.DEFINE_list('persona_encoder_sizes', '200, 200',
+tf.app.flags.DEFINE_list('persona_encoder_sizes', '400',
         'size of each layer in the persona encoder')
-tf.app.flags.DEFINE_list('decoder_sizes', '200, 200',
+tf.app.flags.DEFINE_list('decoder_sizes', '400',
         'size of each layer in the decoder')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
 tf.app.flags.DEFINE_float('learning_rate',
-        4*10**-5, 'learning rate during training')
+        4*10**-3, 'learning rate during training')
 tf.app.flags.DEFINE_bool('use_epochs', True,
         'whether to measure epochs when deciding to stop training rather than number of steps')
 tf.app.flags.DEFINE_integer('epochs', -1,
@@ -72,7 +72,7 @@ tf.app.flags.DEFINE_integer('epochs', -1,
 tf.app.flags.DEFINE_integer('train_steps', -1, 
         'number of training steps to train for. if -1 then train until interrupted')
 tf.app.flags.DEFINE_integer('batch_size',
-        1, 'batch size')
+        2, 'batch size')
 
 # parameter search flags
 # TODO add flags for where to save files and parameter ranges
@@ -97,7 +97,7 @@ tf.app.flags.DEFINE_boolean('save_model',
 tf.app.flags.DEFINE_string('checkpoint_dir',
         'default', 'where to save and load the model. If default then set at runtime to logdir/model_save')
 tf.app.flags.DEFINE_string('logdir',
-        './train/multilayer_debugging/e5_learning_rate', 'where to save tensorboard summaries')
+        './train/progressive_overfit/2', 'where to save tensorboard summaries')
 tf.app.flags.DEFINE_boolean('load_model',
         True, 
         'whether to load the model from file or not for training.')
@@ -189,7 +189,7 @@ def main(_):
     train_size = int(len(dataset) * 0.9)
 
     #train_data = dataset[:train_size]
-    train_data = dataset[:1]
+    train_data = dataset[:2]
     #train_data = dataset
     test_data = dataset[train_size:]
 
