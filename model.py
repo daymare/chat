@@ -252,6 +252,9 @@ class Model(object):
                     global_step = self.global_step,
                     epoch = self.epoch)
 
+        self.checkpoint_manager = tf.contrib.checkpoint.CheckpointManager(
+                self.checkpoint, directory=self.config.checkpoint_dir, max_to_keep=1)
+
     def loss_function(self, real, pred):
         loss_ = tf.nn.sparse_softmax_cross_entropy_with_logits(
                 labels=real, logits=pred)
@@ -267,9 +270,7 @@ class Model(object):
 
     def load(self, checkpoint_dir):
         """ load the model from a save file """
-        print("global step before load: {}".format(self.global_step.numpy()))
-        self.checkpoint.restore(
-                tf.train.latest_checkpoint(checkpoint_dir))
+        self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
         print("global step after load: {}".format(self.global_step.numpy()))
 
     def train(self, train_data, test_data, num_steps=-1, 
@@ -402,8 +403,7 @@ class Model(object):
                         and self.config.save_model == True):
                     logging.debug('Saving model to: {}'.format(
                         self.config.checkpoint_dir))
-                    self.checkpoint.save(
-                        file_prefix = self.config.checkpoint_dir)
+                    self.checkpoint_manager.save()
 
                 # quit if we have done the correct number of steps
                 if self.global_step.numpy() >= num_steps and num_steps > 0 and self.config.use_epochs is False:
