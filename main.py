@@ -51,15 +51,15 @@ tf.app.flags.DEFINE_string('embedding_fname',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_list('encoder_sizes', '300, 300',
+tf.app.flags.DEFINE_list('encoder_sizes', '400, 400',
         'size of each layer in the encoder')
 tf.app.flags.DEFINE_boolean('input_independant', False,
         'whether to train without input')
 tf.app.flags.DEFINE_bool('use_persona_encoder', True,
         'whether to process persona information and feed to the decoder or not')
-tf.app.flags.DEFINE_list('persona_encoder_sizes', '200, 200',
+tf.app.flags.DEFINE_list('persona_encoder_sizes', '250, 250',
         'size of each layer in the persona encoder')
-tf.app.flags.DEFINE_list('decoder_sizes', '300, 300',
+tf.app.flags.DEFINE_list('decoder_sizes', '400, 400',
         'size of each layer in the decoder')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
@@ -94,7 +94,7 @@ tf.app.flags.DEFINE_boolean('load_model',
         True, 
         'whether to load the model from file or not for training.')
 tf.app.flags.DEFINE_string('logdir',
-        './train/progressive_overfit/128', 'where to save tensorboard summaries')
+        './train/progressive_overfit/128/a_bit_bigger', 'where to save tensorboard summaries')
 tf.app.flags.DEFINE_integer('dataset_size', 128, 
         'number of samples to put in the dataset. -1 indicates 90/10 train test split')
 tf.app.flags.DEFINE_bool('use_epochs', True,
