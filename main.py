@@ -66,7 +66,7 @@ tf.app.flags.DEFINE_float('max_gradient_norm',
 tf.app.flags.DEFINE_float('learning_rate',
         3*10**-4, 'learning rate during training')
 tf.app.flags.DEFINE_integer('batch_size',
-        8, 'batch size')
+        16, 'batch size')
 
 # parameter search flags
 # TODO add flags for where to save files and parameter ranges
@@ -94,8 +94,8 @@ tf.app.flags.DEFINE_boolean('load_model',
         True, 
         'whether to load the model from file or not for training.')
 tf.app.flags.DEFINE_string('logdir',
-        './train/progressive_overfit/128/a_bit_bigger', 'where to save tensorboard summaries')
-tf.app.flags.DEFINE_integer('dataset_size', 128, 
+        './train/progressive_overfit/256', 'where to save tensorboard summaries')
+tf.app.flags.DEFINE_integer('dataset_size', 256, 
         'number of samples to put in the dataset. -1 indicates 90/10 train test split')
 tf.app.flags.DEFINE_bool('use_epochs', True,
         'whether to measure epochs when deciding to stop training rather than number of steps')
