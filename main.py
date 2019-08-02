@@ -94,7 +94,7 @@ tf.app.flags.DEFINE_boolean('load_model',
         True, 
         'whether to load the model from file or not for training.')
 tf.app.flags.DEFINE_string('logdir',
-        './train/progressive_overfit/2048/take2', 'where to save tensorboard summaries')
+        './train/progressive_overfit/2048/continuation', 'where to save tensorboard summaries')
 tf.app.flags.DEFINE_integer('dataset_size', 2048, 
         'number of samples to put in the dataset. -1 indicates 90/10 train test split')
 tf.app.flags.DEFINE_bool('use_epochs', True,
