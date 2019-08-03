@@ -19,31 +19,37 @@ def lstm(units, name=None):
                 trainable=True,
                 name=name)
 
-def initialize_multilayer_hidden_state(layer_sizes, batch_size):
+def initialize_multilayer_hidden_state(layer_sizes, batch_size,
+        gru_over_lstm):
     hidden = []
     for layer in range(len(layer_sizes)):
         layer_size = layer_sizes[layer]
-        layer_hidden = [
-            tf.zeros((batch_size, layer_size)),
-            tf.zeros((batch_size, layer_size))
-            ]
+
+        if gru_over_lstm is True:
+            layer_hidden = tf.zeros([batch_size, layer_size])
+        else:
+            layer_hidden = [
+                tf.zeros([batch_size, layer_size]),
+                tf.zeros([batch_size, layer_size])
+                ]
         hidden.append(layer_hidden)
 
     return hidden
 
 
-def gru(units):
+def gru(units, name=None):
     if tf.test.is_gpu_available():
         return tf.keras.layers.CuDNNGRU(
                 units,
                 return_sequences=True,
                 return_state=True,
-                recurrent_initializer='glorot_uniform')
+                trainable=True,
+                name=name)
     else:
         return tf.keras.layers.GRU(
                 units,
                 return_sequences=True,
                 return_state=True,
-                recurrent_activation='sigmoid',
-                recurrent_initializer='glorot_uniform')
+                trainable=True,
+                name=name)
 

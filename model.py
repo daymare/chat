@@ -14,23 +14,28 @@ from util.train_util import get_loss
 from util.train_util import calculate_hidden_cos_similarity
 
 from util.model_util import lstm
+from util.model_util import gru
 from util.model_util import initialize_multilayer_hidden_state
 
 
 class PersonaEncoder(tf.keras.Model):
-    def __init__(self, layer_sizes, batch_size, embedding):
+    def __init__(self, layer_sizes, batch_size, embedding, gru_over_lstm):
         super(PersonaEncoder, self).__init__()
 
         self.batch_size = batch_size
         self.layer_sizes = layer_sizes
         self.embedding = embedding
+        self.gru_over_lstm = gru_over_lstm
 
         # initialize cells
         self.cells = []
         for i in range(len(layer_sizes)):
             name = "PersonaEncoder_Layer{}".format(i)
             size = layer_sizes[i]
-            self.cells.append(lstm(size, name))
+            if gru_over_lstm is True:
+                self.cells.append(gru(size, name))
+            else:
+                self.cells.append(lstm(size, name))
 
     def call(self, personas):
         """
@@ -53,8 +58,12 @@ class PersonaEncoder(tf.keras.Model):
                 cell = self.cells[layer]
                 layer_hidden = hidden[layer]
 
-                output, hidden1, hidden2 = cell(x, layer_hidden)
-                layer_hidden = [hidden1, hidden2]
+                if self.gru_over_lstm is True:
+                    output, hidden = cell(x, layer_hidden)
+                    layer_hidden = hidden
+                else:
+                    output, hidden1, hidden2 = cell(x, layer_hidden)
+                    layer_hidden = [hidden1, hidden2]
 
                 x = output
 
@@ -67,22 +76,27 @@ class PersonaEncoder(tf.keras.Model):
         return outputs
 
     def initialize_hidden_state(self):
-        return initialize_multilayer_hidden_state(self.layer_sizes, self.batch_size)
+        return initialize_multilayer_hidden_state(self.layer_sizes, 
+                self.batch_size, self.gru_over_lstm)
 
 class Encoder(tf.keras.Model):
-    def __init__(self, layer_sizes, batch_size, embedding):
+    def __init__(self, layer_sizes, batch_size, embedding, gru_over_lstm):
         super(Encoder, self).__init__()
 
         self.batch_size = batch_size
         self.layer_sizes = layer_sizes
         self.embedding = embedding
+        self.gru_over_lstm = gru_over_lstm
 
         # initialize cells
         self.cells = []
         for i in range(len(layer_sizes)):
             name = "Encoder_Layer{}".format(i)
             size = layer_sizes[i]
-            self.cells.append(lstm(size, name))
+            if gru_over_lstm is True:
+                self.cells.append(gru(size, name))
+            else:
+                self.cells.append(lstm(size, name))
 
     def call(self, x, hidden):
         x = self.embedding(x)
@@ -91,8 +105,12 @@ class Encoder(tf.keras.Model):
             cell = self.cells[layer]
             layer_hidden = hidden[layer]
 
-            output, hidden1, hidden2 = cell(x, layer_hidden)
-            layer_hidden = [hidden1, hidden2]
+            if self.gru_over_lstm is True:
+                output, hidden = cell(x, layer_hidden)
+                layer_hidden = hidden
+            else:
+                output, hidden1, hidden2 = cell(x, layer_hidden)
+                layer_hidden = [hidden1, hidden2]
 
             x = output
 
@@ -101,23 +119,29 @@ class Encoder(tf.keras.Model):
         return output, layer_hidden
 
     def initialize_hidden_state(self):
-        return initialize_multilayer_hidden_state(self.layer_sizes, self.batch_size)
+        return initialize_multilayer_hidden_state(self.layer_sizes, self.batch_size,
+                self.gru_over_lstm)
 
 class Decoder(tf.keras.Model):
-    def __init__(self, layer_sizes, vocab_size, batch_size, embedding):
+    def __init__(self, layer_sizes, vocab_size, batch_size, embedding, gru_over_lstm):
         super(Decoder, self).__init__()
         
         self.batch_size = batch_size
         self.layer_sizes = layer_sizes
         self.embedding = embedding
+        self.gru_over_lstm = gru_over_lstm
         self.projection_layer = tf.keras.layers.Dense(vocab_size,
                 name="projection")
 
+        # initialize cells
         self.cells = []
         for i in range(len(layer_sizes)):
             name = "Decoder_Layer{}".format(i)
             size = layer_sizes[i]
-            self.cells.append(lstm(size, name))
+            if gru_over_lstm is True:
+                self.cells.append(gru(size, name))
+            else:
+                self.cells.append(lstm(size, name))
 
         # attention stuff
         attention_units = self.layer_sizes[0]
@@ -132,13 +156,17 @@ class Decoder(tf.keras.Model):
 
         if use_persona_encoder is True:
             # concatenate the two hidden states for hidden and persona embeddings
-            persona_embedding_list = [persona_embeddings[:,:,i,:] for i in range(persona_embeddings.shape[2])]
-            persona_embeddings = tf.concat(persona_embedding_list, 2)
+            # TODO really look at this are and make sure nothing is screwed up
+            if self.gru_over_lstm is False:
+                persona_embedding_list = [persona_embeddings[:,:,i,:] for i in range(persona_embeddings.shape[2])]
+                persona_embeddings = tf.concat(persona_embedding_list, 2)
 
             # add time dimension to hidden state
             layer_hidden = hidden[0]
-            concat_hidden = tf.concat(layer_hidden, 1)
-            hidden_w_time_axis = tf.expand_dims(concat_hidden, 1)
+            if self.gru_over_lstm is False:
+                # concatenate the two hidden states provided by lstm
+                layer_hidden = tf.concat(layer_hidden, 1)
+            hidden_w_time_axis = tf.expand_dims(layer_hidden, 1)
 
             # get scores
             w1_hidden = self.W1(hidden_w_time_axis)
@@ -179,7 +207,8 @@ class Decoder(tf.keras.Model):
         return x, dec_hidden
 
     def initialize_hidden_state(self):
-        return initialize_multilayer_hidden_state(self.layer_sizes, self.batch_size)
+        return initialize_multilayer_hidden_state(self.layer_sizes, 
+                self.batch_size, self.gru_over_lstm)
 
 
 class Model(object):
@@ -207,7 +236,8 @@ class Model(object):
             self.persona_encoder = PersonaEncoder(
                     persona_encoder_sizes, 
                     self.config.batch_size,
-                    embedding)
+                    embedding,
+                    self.config.gru_over_lstm)
         else:
             self.persona_encoder = None
 
@@ -215,14 +245,16 @@ class Model(object):
         self.encoder = Encoder(
                 encoder_sizes, 
                 self.config.batch_size,
-                embedding)
+                embedding,
+                self.config.gru_over_lstm)
 
         # decoder
         self.decoder = Decoder(
                 decoder_sizes, 
                 self.config.vocab_size,
                 self.config.batch_size,
-                embedding)
+                embedding,
+                self.config.gru_over_lstm)
 
         # optimizer and loss function
         self.optimizer = optimizer = \

@@ -51,6 +51,8 @@ tf.app.flags.DEFINE_string('embedding_fname',
         'filepath of word embeddings')
 
 # model flags
+tf.app.flags.DEFINE_bool('gru_over_lstm', True,
+        'whether to use grus instead of lstms in the model')
 tf.app.flags.DEFINE_list('encoder_sizes', '500, 500, 500',
         'size of each layer in the encoder')
 tf.app.flags.DEFINE_boolean('input_independant', False,
@@ -94,7 +96,7 @@ tf.app.flags.DEFINE_boolean('load_model',
         True, 
         'whether to load the model from file or not for training.')
 tf.app.flags.DEFINE_string('logdir',
-        './train/progressive_overfit/2048/continuation', 'where to save tensorboard summaries')
+        './train/testing', 'where to save tensorboard summaries')
 tf.app.flags.DEFINE_integer('dataset_size', 2048, 
         'number of samples to put in the dataset. -1 indicates 90/10 train test split')
 tf.app.flags.DEFINE_bool('use_epochs', True,
