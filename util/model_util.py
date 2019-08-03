@@ -4,6 +4,9 @@
 import tensorflow as tf
 
 
+
+# TODO test using glorot uniform recurrent initialization
+
 def lstm(units, name=None):
     if tf.test.is_gpu_available():
         return tf.keras.layers.CuDNNLSTM(units,
@@ -13,6 +16,22 @@ def lstm(units, name=None):
                 name=name)
     else:
         return tf.keras.layers.LSTM(
+                units,
+                return_sequences=True,
+                return_state=True,
+                trainable=True,
+                name=name)
+
+def gru(units, name=None):
+    if tf.test.is_gpu_available():
+        return tf.keras.layers.CuDNNGRU(
+                units,
+                return_sequences=True,
+                return_state=True,
+                trainable=True,
+                name=name)
+    else:
+        return tf.keras.layers.GRU(
                 units,
                 return_sequences=True,
                 return_state=True,
@@ -37,19 +56,4 @@ def initialize_multilayer_hidden_state(layer_sizes, batch_size,
     return hidden
 
 
-def gru(units, name=None):
-    if tf.test.is_gpu_available():
-        return tf.keras.layers.CuDNNGRU(
-                units,
-                return_sequences=True,
-                return_state=True,
-                trainable=True,
-                name=name)
-    else:
-        return tf.keras.layers.GRU(
-                units,
-                return_sequences=True,
-                return_state=True,
-                trainable=True,
-                name=name)
 
