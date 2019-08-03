@@ -45,7 +45,7 @@ class PersonaEncoder(tf.keras.Model):
         """
         outputs = []
 
-        # reshape personas to fit the lstm
+        # reshape personas to fit the model
         personas = np.transpose(personas, (1, 0, 2))
 
         for persona in personas:
@@ -59,8 +59,7 @@ class PersonaEncoder(tf.keras.Model):
                 layer_hidden = hidden[layer]
 
                 if self.gru_over_lstm is True:
-                    output, hidden = cell(x, layer_hidden)
-                    layer_hidden = hidden
+                    output, layer_hidden = cell(x, layer_hidden)
                 else:
                     output, hidden1, hidden2 = cell(x, layer_hidden)
                     layer_hidden = [hidden1, hidden2]
@@ -71,7 +70,11 @@ class PersonaEncoder(tf.keras.Model):
 
         # reshape outputs to be what we expect
         outputs = tf.convert_to_tensor(outputs)
-        outputs = tf.transpose(outputs, [2, 0, 1, 3])
+        if self.gru_over_lstm is True:
+            outputs = tf.transpose(outputs, [1, 0, 2])
+        else:
+            outputs = tf.transpose(outputs, [2, 0, 1, 3])
+
 
         return outputs
 
@@ -106,8 +109,7 @@ class Encoder(tf.keras.Model):
             layer_hidden = hidden[layer]
 
             if self.gru_over_lstm is True:
-                output, hidden = cell(x, layer_hidden)
-                layer_hidden = hidden
+                output, layer_hidden = cell(x, layer_hidden)
             else:
                 output, hidden1, hidden2 = cell(x, layer_hidden)
                 layer_hidden = [hidden1, hidden2]
@@ -189,8 +191,12 @@ class Decoder(tf.keras.Model):
         for layer in range(len(self.cells)):
             cell = self.cells[layer]
             layer_hidden = hidden[layer]
-            output, hidden1, hidden2 = cell(x, layer_hidden)
-            layer_hidden = [hidden1, hidden2]
+
+            if self.gru_over_lstm is True:
+                output, layer_hidden = cell(x, layer_hidden)
+            else:
+                output, hidden1, hidden2 = cell(x, layer_hidden)
+                layer_hidden = [hidden1, hidden2]
 
             new_hidden.append(layer_hidden)
 
@@ -358,7 +364,8 @@ class Model(object):
                     # this is to check that input is being processed meaningfully
                     enc_hidden = logging_info["enc_hidden"]
                     logging_info["enc_hidden_cos_similarity"] = \
-                            calculate_hidden_cos_similarity(enc_hidden, last_enc_hidden)
+                            calculate_hidden_cos_similarity(enc_hidden, 
+                                    last_enc_hidden, self.config.gru_over_lstm)
                     last_enc_hidden = enc_hidden
 
                     # calculate loss and ppl
