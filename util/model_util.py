@@ -13,6 +13,7 @@ def lstm(units, name=None):
                 return_sequences=True,
                 return_state=True,
                 trainable=True,
+                recurrent_initializer='glorot_uniform',
                 name=name)
     else:
         return tf.keras.layers.LSTM(
@@ -20,6 +21,7 @@ def lstm(units, name=None):
                 return_sequences=True,
                 return_state=True,
                 trainable=True,
+                recurrent_initializer='glorot_uniform',
                 name=name)
 
 def gru(units, name=None):
@@ -29,6 +31,7 @@ def gru(units, name=None):
                 return_sequences=True,
                 return_state=True,
                 trainable=True,
+                recurrent_initializer='glorot_uniform',
                 name=name)
     else:
         return tf.keras.layers.GRU(
@@ -36,6 +39,7 @@ def gru(units, name=None):
                 return_sequences=True,
                 return_state=True,
                 trainable=True,
+                recurrent_initializer='glorot_uniform',
                 name=name)
 
 def initialize_multilayer_hidden_state(layer_sizes, batch_size,
