@@ -53,15 +53,15 @@ tf.app.flags.DEFINE_string('embedding_fname',
 # model flags
 tf.app.flags.DEFINE_bool('gru_over_lstm', True,
         'whether to use grus instead of lstms in the model')
-tf.app.flags.DEFINE_list('encoder_sizes', '600, 600, 600',
+tf.app.flags.DEFINE_list('encoder_sizes', '600, 600, 600, 600',
         'size of each layer in the encoder')
 tf.app.flags.DEFINE_boolean('input_independant', False,
         'whether to train without input')
 tf.app.flags.DEFINE_bool('use_persona_encoder', True,
         'whether to process persona information and feed to the decoder or not')
-tf.app.flags.DEFINE_list('persona_encoder_sizes', '400, 400, 400',
+tf.app.flags.DEFINE_list('persona_encoder_sizes', '500, 400, 400',
         'size of each layer in the persona encoder')
-tf.app.flags.DEFINE_list('decoder_sizes', '600, 600, 600',
+tf.app.flags.DEFINE_list('decoder_sizes', '600, 600, 600, 600',
         'size of each layer in the decoder')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
@@ -96,8 +96,8 @@ tf.app.flags.DEFINE_boolean('load_model',
         True, 
         'whether to load the model from file or not for training.')
 tf.app.flags.DEFINE_string('logdir',
-        './train/progressive_overfit/2048/upgrade_test', 'where to save tensorboard summaries')
-tf.app.flags.DEFINE_integer('dataset_size', 2048, 
+        './train/progressive_overfit/4096/deeper', 'where to save tensorboard summaries')
+tf.app.flags.DEFINE_integer('dataset_size', 4096, 
         'number of samples to put in the dataset. -1 indicates 90/10 train test split')
 tf.app.flags.DEFINE_bool('use_epochs', True,
         'whether to measure epochs when deciding to stop training rather than number of steps')
