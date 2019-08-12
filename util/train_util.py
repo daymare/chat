@@ -21,18 +21,31 @@ def sentence_to_np(sentence, max_sentence_len):
     return np_sentence
 
 
-def get_personas(dataset, max_sentence_len, max_conversation_len, max_persona_sentences, max_conversation_words):
+def get_personas(dataset, word2id):
     """ get two random personas from the dataset
 
     could be the same persona.
 
     Used to grab two personas for inference
     """
-    persona1, _, _, _, _, _ = get_sample(
-            dataset, max_sentence_len, max_conversation_len, max_conversation_words, max_persona_sentences)
+    def pad_persona(persona):
+        max_words = 0
+        for sentence in persona:
+            max_words = max(max_words, len(sentence))
 
-    persona2, _, _, _, _, _ = get_sample(
-            dataset, max_sentence_len, max_conversation_len, max_conversation_words, max_persona_sentences)
+        new_persona = []
+        for sentence in persona:
+            new_persona.append(sentence_to_np(sentence, max_words))
+
+        return new_persona
+
+    # get raw personas from dataset
+    persona1, _, _ = get_sample(dataset, word2id)
+    persona2, _, _ = get_sample(dataset, word2id)
+
+    # pad personas
+    persona1 = pad_persona(persona1)
+    persona2 = pad_persona(persona2)
 
     return persona1, persona2
 

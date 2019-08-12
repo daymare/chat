@@ -104,6 +104,7 @@ class Encoder(tf.keras.Model):
     def call(self, x, hidden):
         x = self.embedding(x)
 
+        new_hidden = []
         for layer in range(len(self.cells)):
             cell = self.cells[layer]
             layer_hidden = hidden[layer]
@@ -114,11 +115,12 @@ class Encoder(tf.keras.Model):
                 output, hidden1, hidden2 = cell(x, layer_hidden)
                 layer_hidden = [hidden1, hidden2]
 
+            new_hidden.append(layer_hidden)
             x = output
 
         # return outputs from the last layer 
         # and hidden state from the last layer last timestep
-        return output, layer_hidden
+        return output, new_hidden
 
     def initialize_hidden_state(self):
         return initialize_multilayer_hidden_state(self.layer_sizes, self.batch_size,
@@ -292,6 +294,10 @@ class Model(object):
 
         self.checkpoint_manager = tf.contrib.checkpoint.CheckpointManager(
                 self.checkpoint, directory=self.config.checkpoint_dir, max_to_keep=1)
+        
+        # inference
+        self.encoder_cache = None
+        self.persona_embeddings = None
 
     def loss_function(self, real, pred):
         loss_ = tf.nn.sparse_softmax_cross_entropy_with_logits(
@@ -362,7 +368,7 @@ class Model(object):
 
                     # calculate cosine similarity between last two enc_hidden outputs
                     # this is to check that input is being processed meaningfully
-                    enc_hidden = logging_info["enc_hidden"]
+                    enc_hidden = logging_info["last_enc_hidden"]
                     logging_info["enc_hidden_cos_similarity"] = \
                             calculate_hidden_cos_similarity(enc_hidden, 
                                     last_enc_hidden, self.config.gru_over_lstm)
@@ -509,43 +515,40 @@ class Model(object):
             
             return avg_loss, avg_ppl
 
-    def call(self, inputs, expected_outputs=None, personas=None):
+    def call(self, inputs, expected_outputs=None, personas=None, reset=True,
+            cache=False):
         """ model call for all purposes.
             Supports inference, eval, and training.
 
             Should basically be __call__ except with support for
             training (IE batched input output)
-
-            Should I add a flag for training?
-            Probably want to avoid that if at all possible.
-            Can't avoid. Needed for teacher forcing.
-
-            Eval needs to cache stuff and training does not
-            flag for caching?
-            Add caching later? Add caching later.
         """
-        # TODO replace __call__ code with a call to this function
-
         logging_info = {}
 
         # encode persona
         if self.config.use_persona_encoder is True and personas is not None:
             persona_embeddings = self.persona_encoder(personas)
+            self.persona_embeddings = persona_embeddings
         else:
-            # TODO might be an error here when self.persona_embeddings is not initialized
+            assert self.persona_embeddings is not None, \
+                    "personas must be provided for initial call"
             persona_embeddings = self.persona_embeddings
 
         # run encoder
-        enc_hidden = self.encoder.initialize_hidden_state()
+        if reset is True or self.encoder_cache is None:
+            enc_hidden = self.encoder.initialize_hidden_state()
+        else:
+            enc_hidden = self.encoder_cache
+
         _, enc_hidden = self.encoder(inputs, enc_hidden)
 
-        logging_info["enc_hidden"] = enc_hidden
+        logging_info["last_enc_hidden"] = enc_hidden[-1]
 
         # setup decoder hidden state
         # note that enc_hidden must be the same dimension as the first layer 
         # of the decoder
         dec_hidden = self.decoder.initialize_hidden_state()
-        dec_hidden[0] = enc_hidden
+        dec_hidden[0] = enc_hidden[-1]
 
         # run decoder
         # if outputs are available teacher forcing will be used
@@ -558,7 +561,10 @@ class Model(object):
                 [self.word2id['<start>']] * self.config.batch_size,
                 1)
 
-        dec_outputs = []
+        dec_predictions = []
+        if expected_outputs is None:
+            dec_out_ids = []
+
         # TODO double check there isn't an off by one error here somewhere
         for t in range(0, decoder_limit):
             # process a word
@@ -570,21 +576,32 @@ class Model(object):
             
             # predictions shape (batch_size, dict_size)
             # output shape (decoder_limit, batch_size, dict_size)
-            dec_outputs.append(predictions)
+            dec_predictions.append(predictions)
 
-            # teacher forcing?
+            # teacher forcing
             if expected_outputs is not None:
                 dec_input = tf.expand_dims(expected_outputs[:, t], 1)
             else:
-                # TODO
                 # for inference
-                pass
+                dec_input = tf.argmax(predictions, axis=1)
+                dec_input = tf.expand_dims(dec_input, 0)
 
-            # don't forget to check for <end> here during inference
-            # TODO
+            # if inference check for <end> token
+            if expected_outputs is None:
+                # TODO eventually make this work for multibatch
+                chosen_word = tf.argmax(predictions, axis=1)[0]
+                dec_out_ids.append(chosen_word)
+                if self.id2word[chosen_word] == "<end>":
+                    break
+
+        if expected_outputs is None:
+            # run encoder on our output and cache the result
+            dec_out_ids = tf.expand_dims(dec_out_ids, 0)
+            _, enc_hidden = self.encoder(dec_out_ids, enc_hidden)
+            self.encoder_cache = enc_hidden
 
         # return results
-        return dec_outputs, logging_info
+        return dec_predictions, logging_info
 
     def __call__(self, inputs, persona=None, reset=False):
         """ perform inference on inputs
@@ -598,58 +615,27 @@ class Model(object):
         persona - persona to use. Must be passed if reset 
             is true
 
-        output - response encoded as word ids
+        output - 
+            response_str - response as string
+            response_ids - response as ids
         """
-
-        # setup encoder hidden state
-        if reset == True or self.encoder_cache is None:
-            enc_hidden = self.encoder.initialize_hidden_state()
-        else:
-            enc_hidden = self.encoder_cache
-
-        # encode persona
+        inputs = tf.expand_dims(inputs, 0)
         if persona is not None:
             persona = tf.expand_dims(persona, 0)
-            self.persona_embeddings = self.persona_encoder(persona)
 
-        if self.persona_embeddings is None:
-            raise Exception("need persona embeddings to run model!")
+        predictions, _ = self.call(inputs, personas=persona, reset=reset)
 
-        # run encoder
-        enc_output, enc_hidden = self.encoder(inputs, enc_hidden)
-        dec_hidden = enc_hidden
+        out_ids = []
+        out_string = []
+        for prediction in predictions:
+            cur_id = tf.argmax(prediction[0])
+            out_ids.append(cur_id)
+            out_string.append(self.id2word[cur_id])
 
-        # run decoder
-        dec_input = tf.expand_dims([self.word2id[
-            '<pad>']] * 1, 1)
+        out_string = " ".join(out_string)
+        out_ids = np.array(out_ids)
 
-        str_result = ""
-        id_result = []
-
-        for t in range(1, self.config.max_sentence_len):
-            predictions, dec_hidden = self.decoder(
-                    dec_input,
-                    self.persona_embeddings,
-                    dec_hidden)
-            
-            predicted_id = tf.argmax(predictions[0]).numpy()
-            predicted_word = self.id2word[predicted_id]
-
-            str_result += predicted_word + " "
-            id_result.append(predicted_id)
-
-            if predicted_word == '<pad>':
-                break
-
-            dec_input = tf.expand_dims([predicted_id], 0)
-
-        # run encoder on our output
-        enc_input = tf.expand_dims(id_result, 0)
-        _, enc_hidden = self.encoder(enc_input, enc_hidden)
-        self.encoder_cache = enc_hidden
-
-        # return result
-        return str_result[:-1], id_result
+        return out_string, out_ids
     
     def record_summaries(self, logging_info):
         li = logging_info
@@ -671,8 +657,8 @@ class Model(object):
             tf.contrib.summary.scalar('perplexity', li["batch_ppl"])
 
             # enc hidden norm
-            tf.contrib.summary.scalar('enc_hidden_0_norm', tf.norm(li["enc_hidden"][0]))
-            tf.contrib.summary.scalar('enc_hidden_1_norm', tf.norm(li["enc_hidden"][1]))
+            tf.contrib.summary.scalar('enc_hidden_0_norm', tf.norm(li["last_enc_hidden"][0]))
+            tf.contrib.summary.scalar('enc_hidden_1_norm', tf.norm(li["last_enc_hidden"][1]))
 
             # enc hidden cosine similarity
             tf.contrib.summary.scalar('enc_hidden_cos_sim', li["enc_hidden_cos_similarity"])
@@ -742,7 +728,7 @@ class Model(object):
             record_histograms(self.encoder.cells, "Encoder")
             record_histograms(self.decoder.cells, "Decoder")
 
-            tf.contrib.summary.histogram("encoder_final_hidden", li["enc_hidden"])
+            tf.contrib.summary.histogram("encoder_final_hidden", li["last_enc_hidden"])
 
             ## decoder histograms
             projection_kernel, projection_bias = self.decoder.projection_layer.variables
