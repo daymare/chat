@@ -312,7 +312,10 @@ class Model(object):
         self.id2word = id2word
         self.word2id = word2id
 
-    def load(self, checkpoint_dir):
+    def save(self):
+        self.checkpoint_manager.save()
+
+    def load(self):
         """ load the model from a save file """
         self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
         print("global step after load: {}".format(self.global_step.numpy()))
@@ -448,7 +451,7 @@ class Model(object):
                         and self.config.save_model == True):
                     logging.debug('Saving model to: {}'.format(
                         self.config.checkpoint_dir))
-                    self.checkpoint_manager.save()
+                    self.save()
 
                 # quit if we have done the correct number of steps
                 if self.global_step.numpy() >= num_steps and num_steps > 0 and self.config.use_epochs is False:
@@ -757,6 +760,7 @@ class Model(object):
                     tf.contrib.summary.scalar("{}_gradient_mag".format(variable.name[:-2]), tf.norm(gradient))
                 except Exception as e:
                     pass
+
 
 
 

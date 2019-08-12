@@ -215,7 +215,7 @@ def main(_):
         # ensure load folder exists 
         if os.path.isdir(config.checkpoint_dir):
             print("loading model from: {}".format(config.checkpoint_dir))
-            model.load(config.checkpoint_dir)
+            model.load()
         else:
             print("no save folder exists. Continuing without loading model.")
 

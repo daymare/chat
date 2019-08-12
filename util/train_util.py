@@ -20,6 +20,16 @@ def sentence_to_np(sentence, max_sentence_len):
 
     return np_sentence
 
+def pad_persona(persona):
+    max_words = 0
+    for sentence in persona:
+        max_words = max(max_words, len(sentence))
+
+    new_persona = []
+    for sentence in persona:
+        new_persona.append(sentence_to_np(sentence, max_words))
+
+    return new_persona
 
 def get_personas(dataset, word2id):
     """ get two random personas from the dataset
@@ -28,17 +38,6 @@ def get_personas(dataset, word2id):
 
     Used to grab two personas for inference
     """
-    def pad_persona(persona):
-        max_words = 0
-        for sentence in persona:
-            max_words = max(max_words, len(sentence))
-
-        new_persona = []
-        for sentence in persona:
-            new_persona.append(sentence_to_np(sentence, max_words))
-
-        return new_persona
-
     # get raw personas from dataset
     persona1, _, _ = get_sample(dataset, word2id)
     persona2, _, _ = get_sample(dataset, word2id)

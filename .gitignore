@@ -10,6 +10,7 @@ notes/
 nmt/
 train/
 train_archive/
+testing/test_dir/
 tensorflow
 parameter_search/parameter_out.txt
 parameter_search/results/
