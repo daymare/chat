@@ -388,7 +388,13 @@ class Model(object):
 
                     # calculate cosine similarity between last two enc_hidden outputs
                     # this is to check that input is being processed meaningfully
-                    enc_hidden = logging_info["last_enc_hidden"]
+
+                    if self.config.gru_over_lstm is True:
+                        enc_hidden = logging_info["last_enc_hidden"][0]
+                    else:
+                        enc_hidden = logging_info["last_enc_hidden"][1][0]
+                        print("last enc hidden: {}".format(logging_info["last_enc_hidden"]))
+
                     logging_info["enc_hidden_cos_similarity"] = \
                             calculate_hidden_cos_similarity(enc_hidden, 
                                     last_enc_hidden, self.config.gru_over_lstm)
@@ -567,6 +573,9 @@ class Model(object):
 
         _, enc_hidden = self.encoder(inputs, enc_hidden)
 
+        # note encoder hidden shape is:
+        # List(num_layers, (batch_size, units)), for GRU
+        # List(num_layers, [(batch_size, units), (batch_size, units)], for LSTM
         logging_info["last_enc_hidden"] = enc_hidden[-1]
 
         # setup decoder hidden state
@@ -682,8 +691,12 @@ class Model(object):
             tf.contrib.summary.scalar('perplexity', li["batch_ppl"])
 
             # enc hidden norm
-            tf.contrib.summary.scalar('enc_hidden_0_norm', tf.norm(li["last_enc_hidden"][0]))
-            tf.contrib.summary.scalar('enc_hidden_1_norm', tf.norm(li["last_enc_hidden"][1]))
+            if self.config.gru_over_lstm is True:
+                tf.contrib.summary.scalar('enc_hidden_norm', tf.norm(li["last_enc_hidden"][0]))
+            else:
+                tf.contrib.summary.scalar('enc_hidden_0_norm', tf.norm(li["last_enc_hidden"][0][0]))
+                tf.contrib.summary.scalar('enc_hidden_1_norm', tf.norm(li["last_enc_hidden"][1][0]))
+
 
             # enc hidden cosine similarity
             tf.contrib.summary.scalar('enc_hidden_cos_sim', li["enc_hidden_cos_similarity"])
@@ -753,7 +766,8 @@ class Model(object):
             record_histograms(self.encoder.cells, "Encoder")
             record_histograms(self.decoder.cells, "Decoder")
 
-            tf.contrib.summary.histogram("encoder_final_hidden", li["last_enc_hidden"])
+            tf.contrib.summary.histogram("encoder final hidden",
+                    li["last_enc_hidden"])
 
             ## decoder histograms
             projection_kernel, projection_bias = self.decoder.projection_layer.variables

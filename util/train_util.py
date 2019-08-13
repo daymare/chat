@@ -277,16 +277,11 @@ def calculate_hidden_cos_similarity(hidden1, hidden2, gru_over_lstm):
     if hidden1 is None or hidden2 is None:
         return 0.0
 
-    if gru_over_lstm is False:
-        # LSTM only compare the second hidden state
-        a = hidden1[1][0]
-        b = hidden2[1][0]
-    else:
-        a = hidden1[0]
-        b = hidden2[0]
+    a = hidden1
+    b = hidden2
 
-    normalized_a = tf.nn.l2_normalize(a, 0)
-    normalized_b = tf.nn.l2_normalize(b, 0)
+    normalized_a = tf.nn.l2_normalize(a)
+    normalized_b = tf.nn.l2_normalize(b)
     cos_similarity = tf.reduce_sum(tf.multiply(normalized_a, normalized_b))
 
     return cos_similarity
