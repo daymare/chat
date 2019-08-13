@@ -102,6 +102,23 @@ class Encoder(tf.keras.Model):
                 self.cells.append(lstm(size, name))
 
     def call(self, x, hidden):
+        """ run encoder on input and output results
+            inputs:
+                x - input conversation encoded as ids 
+                    (batch_size, max_batch_sentence_len)
+                hidden - hidden state to use
+                    for GRU:
+                        List(num_layers, (batch_size, units))
+                    for LSTM:
+                        List(num_layers, [(batch_size, units), 
+                                            (batch_size, units)]
+
+            outputs:
+                output - results of running through network
+                        (batch_size, max_batch_sentence_len, units)
+                new_hidden - hidden states at the end of running through network
+                        same types as hidden inputs
+        """
         x = self.embedding(x)
 
         new_hidden = []
