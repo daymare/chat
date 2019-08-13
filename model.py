@@ -766,7 +766,7 @@ class Model(object):
             record_histograms(self.encoder.cells, "Encoder")
             record_histograms(self.decoder.cells, "Decoder")
 
-            tf.contrib.summary.histogram("encoder final hidden",
+            tf.contrib.summary.histogram("encoder_final_hidden",
                     li["last_enc_hidden"])
 
             ## decoder histograms
