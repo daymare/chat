@@ -340,15 +340,15 @@ class Model(object):
     def train(self, train_data, test_data, num_steps=-1, 
             num_epochs=-1, parameter_search=False):
 
-        # keep track of average loss for parameter search
-        if parameter_search == True:
-            loss_history = []
-            ppl_history = []
+        # keep track of average loss and ppl
+        loss_history = []
+        ppl_history = []
+        hundred_batch_time = 0.0
 
-            def update_history(history, value, max=100):
-                if len(history) >= max:
-                    history.pop(0)
-                history.append(value)
+        def update_history(history, value, max=100):
+            if len(history) >= max:
+                history.pop(0)
+            history.append(value)
 
         # tensorboard setup
         if self.config.save_summary == True:
@@ -423,10 +423,9 @@ class Model(object):
 
                 self.optimizer.apply_gradients(zip(gradients, variables))
 
-                # record history for parameter search
-                if parameter_search == True:
-                    update_history(loss_history, batch_loss)
-                    update_history(ppl_history, batch_ppl)
+                # record average recent loss and ppl
+                update_history(loss_history, batch_loss)
+                update_history(ppl_history, batch_ppl)
 
                 # run eval
                 if self.config.run_eval is True and \
@@ -452,16 +451,22 @@ class Model(object):
                     self.record_summaries(logging_info)
 
                 # print out progress
+                hundred_batch_time += time.time() - start
                 if self.config.print_training == True:
-                    print('\n')
-                    print('Epoch {}'.format(self.epoch + 1))
-                    print('Batch {}'.format(self.global_step.numpy() + 1))
-                    print('Memory usage (MB): {}'.format(tf.contrib.memory_stats.BytesInUse() / 1000000))
-                    print('Max memory usage (MB): {}'.format(tf.contrib.memory_stats.MaxBytesInUse() / 1000000))
-                    print('Loss: {:.4f}'.format(batch_loss.numpy()))
-                    print('Perplexity: {:.4f}'.format(batch_ppl.numpy()))
-                    print('Time taken for 1 step {} sec'.format(
-                        time.time() - start), flush=True)
+                    print('.', end='')
+                    if self.global_step.numpy() % 50 == 0:
+                        print()
+                    if self.global_step.numpy() % 100 == 0:
+                        recent_avg_loss = sum(loss_history) / len(loss_history)
+                        recent_avg_ppl = sum(ppl_history) / len(ppl_history)
+                        print("recent average loss: {}".format(recent_avg_loss))
+                        print("recent average ppl: {}".format(recent_avg_ppl))
+                        print("Epoch {}".format(self.epoch.numpy()))
+                        print("Batch {}".format(self.global_step.numpy()))
+                        print("minutes for 100 batches: {}".format(
+                            hundred_batch_time / 60))
+                        hundred_batch_time = 0.0
+                    print('', end='', flush=True)
 
                 # save the model every x batches
                 if ((self.global_step.numpy() + 1) % self.config.model_save_interval == 0
