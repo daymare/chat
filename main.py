@@ -8,7 +8,9 @@ import tensorflow as tf
 from tensorflow.python import debug as tf_debug
 import numpy as np
 
-from util.load_util import load_word_embeddings, load_dataset
+from util.load_util import load_word_embeddings
+from util.load_util import load_dataset
+from util.load_util import load_parameter_file
 from util.data_util import get_data_info, convert_to_id
 from util.data_viz import look_at_data
 from util.file_util import tee_output
@@ -53,15 +55,15 @@ tf.app.flags.DEFINE_string('embedding_fname',
 # model flags
 tf.app.flags.DEFINE_bool('gru_over_lstm', True,
         'whether to use grus instead of lstms in the model')
-tf.app.flags.DEFINE_list('encoder_sizes', '600, 600, 600, 600',
+tf.app.flags.DEFINE_list('encoder_sizes', '400, 400, 400',
         'size of each layer in the encoder')
 tf.app.flags.DEFINE_boolean('input_independant', False,
         'whether to train without input')
 tf.app.flags.DEFINE_bool('use_persona_encoder', True,
         'whether to process persona information and feed to the decoder or not')
-tf.app.flags.DEFINE_list('persona_encoder_sizes', '500, 400, 400',
+tf.app.flags.DEFINE_list('persona_encoder_sizes', '300, 300, 300',
         'size of each layer in the persona encoder')
-tf.app.flags.DEFINE_list('decoder_sizes', '600, 600, 600, 600',
+tf.app.flags.DEFINE_list('decoder_sizes', '400, 400, 400',
         'size of each layer in the decoder')
 tf.app.flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
@@ -96,8 +98,8 @@ tf.app.flags.DEFINE_boolean('load_model',
         True, 
         'whether to load the model from file or not for training.')
 tf.app.flags.DEFINE_string('logdir',
-        './train/progressive_overfit/4096/deeper', 'where to save tensorboard summaries')
-tf.app.flags.DEFINE_integer('dataset_size', 4096, 
+        './train/progressive_overfit/1024', 'where to save tensorboard summaries')
+tf.app.flags.DEFINE_integer('dataset_size', 1024, 
         'number of samples to put in the dataset. -1 indicates 90/10 train test split')
 tf.app.flags.DEFINE_bool('use_epochs', True,
         'whether to measure epochs when deciding to stop training rather than number of steps')
@@ -107,10 +109,17 @@ tf.app.flags.DEFINE_integer('train_steps', -1,
         'number of training steps to train for. if -1 then train until interrupted')
 
 # control flags
+tf.app.flags.DEFINE_boolean('use_parameter_override_file',
+        True, 'whether to override command line parameters with parameter file'
+        + ' or not')
+tf.app.flags.DEFINE_string('parameter_override_filepath',
+        'default', 'location of the parameter override file'
+            + 'if default then will be changed to logdir/parameters.txt')
 tf.app.flags.DEFINE_boolean('debug', 
         False, 'run in debug mode?')
 tf.app.flags.DEFINE_string('mode',
-        'train', 'what mode to run in. Available modes are train, inference, data_viz, parameter_search, and unit_test')
+        'train', ('what mode to run in. Available modes are train, inference, '
+            + 'data_viz, parameter_search, and unit_test'))
 
 # runtime "flags"
 # computed at runtime
@@ -139,9 +148,16 @@ def main(_):
     # override checkpoint
     if config.checkpoint_dir == 'default':
         config.checkpoint_dir = config.logdir + "/model_save/"
+    # override parameter file
+    if config.parameter_override_filepath == 'default':
+        config.parameter_override_filepath = config.logdir + "/parameters.txt"
 
     # copy stdout and stderr to checkpoint dir
     tee_output(config.logdir, "out")
+
+    # load parameter file
+    if config.use_parameter_override_file is True:
+        load_parameter_file(config.parameter_override_filepath, config)
 
     # print date and time for output records
     now = datetime.datetime.now()
@@ -210,7 +226,6 @@ def main(_):
     model = Model(config, word2vec, id2word, word2id)
 
     # load model
-    # TODO add check to ensure the file exists
     if config.load_model == True or config.run_inference == True:
         # ensure load folder exists 
         if os.path.isdir(config.checkpoint_dir):

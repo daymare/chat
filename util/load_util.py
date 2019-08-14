@@ -115,4 +115,26 @@ def load_word_embeddings(fname, embedding_dim, word2id):
             % (len(word2id) - oov, oov))
     return word2vec
 
+def load_parameter_file(filepath, config):
+    import sys
+
+    # double check file exists
+    assert os.path.isfile(filepath) is True, "parameter file does not exist!"
+
+    with open(filepath, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if line == "":
+                continue
+
+            content = line.split("=")
+            assert len(content) == 2, \
+                    ("found improperly formatted line in parameter file!"
+                        + ": {}".format(line))
+
+            flag = content[0]
+            value = content[1]
+            value = eval(value)
+
+            config[flag].value = value
 
