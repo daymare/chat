@@ -1,7 +1,6 @@
 
 import numpy as np
 import logging
-import sys
 
 from util.train_util import get_personas
 from util.train_util import sentence_to_np
