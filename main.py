@@ -226,7 +226,7 @@ def main(_):
     model = Model(config, word2vec, id2word, word2id)
 
     # load model
-    if config.load_model == True or config.run_inference == True:
+    if config.load_model == True or config.mode == 'inference':
         # ensure load folder exists 
         if os.path.isdir(config.checkpoint_dir):
             print("loading model from: {}".format(config.checkpoint_dir))
