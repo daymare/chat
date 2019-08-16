@@ -205,7 +205,7 @@ def main(_):
     # split into train and test
     # TODO make split ratio into a parameter
     print('splitting dataset')
-    random.shuffle(dataset)
+    #random.shuffle(dataset)
 
     if config.dataset_size < 0:
         train_size = int(len(dataset) * 0.9)
