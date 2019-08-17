@@ -80,13 +80,15 @@ class PersonaEncoder(tf.keras.Model):
                 self.batch_size, self.gru_over_lstm)
 
 class Encoder(tf.keras.Model):
-    def __init__(self, layer_sizes, batch_size, embedding, gru_over_lstm):
+    def __init__(self, layer_sizes, batch_size, embedding, gru_over_lstm,
+            word2id):
         super(Encoder, self).__init__()
 
         self.batch_size = batch_size
         self.layer_sizes = layer_sizes
         self.embedding = embedding
         self.gru_over_lstm = gru_over_lstm
+        self.word2id = word2id
 
         # initialize cells
         self.cells = []
@@ -115,26 +117,101 @@ class Encoder(tf.keras.Model):
                         (batch_size, max_batch_sentence_len, units)
                 new_hidden - hidden states at the end of running through network
                         same types as hidden inputs
+
+            Note that the encoder extracts outputs for each sample based on
+            where the <end> token is in that sample. This is to avoid the model
+            saturating from absorbing an excessive number of <endpad> tokens.
         """
+        num_layers = len(self.cells)
+
+        # get end position of each sample
+        end_positions = {}
+        for sample_index in range(len(x)):
+            sample = x[sample_index]
+            # sample shape: (max_batch_sentence_len)
+            for position in range(len(sample)):
+                if sample[position].numpy() == self.word2id["<end>"]:
+                    if position in end_positions:
+                        end_positions[position].append(sample_index)
+                    else:
+                        end_positions[position] = [sample_index]
+                    break
+        end_position_list = end_positions.keys()
+        end_position_list = sorted(end_position_list)
+
+        # convert each word to its embedding vector
         x = self.embedding(x)
 
-        new_hidden = []
-        for layer in range(len(self.cells)):
-            cell = self.cells[layer]
-            layer_hidden = hidden[layer]
+        # initialize out_hidden
+        # will be transformed back to hidden shape.
+        # shape: List(batch_size, List(num_layers, (units or units, units)))
+        out_hidden = []
+        for i in range(self.batch_size):
+            out_hidden.append([])
+            for layer in range(num_layers):
+                out_hidden[i].append(None)
 
+        current_word_index = 0
+        for next_word_index in end_position_list:
+            # shape: (batch_size, words, embedding_dim)
+            word_slice = x[:, current_word_index:next_word_index+1]
+            current_word_index = next_word_index+1
+
+            current_hidden = []
+            layer_input = word_slice
+            # run input on each layer
+            for layer in range(num_layers):
+                cell = self.cells[layer]
+                layer_hidden = hidden[layer]
+
+                # run input through current layer
+                if self.gru_over_lstm is True:
+                    output, layer_hidden = cell(layer_input, layer_hidden)
+                else:
+                    output, hidden1, hidden2 = cell(layer_input, layer_hidden)
+                    layer_hidden = [hidden1, hidden2]
+
+                # update hidden state
+                current_hidden.append(layer_hidden)
+                # prepare input for next layer
+                layer_input = output
+            # update hidden state for next input
+            hidden = current_hidden
+
+            # extract hidden state for end samples
+            for sample_index in end_positions.get(next_word_index, []):
+                for layer in range(num_layers):
+                    if self.gru_over_lstm is True:
+                        out_hidden[sample_index][layer] = \
+                                hidden[layer][sample_index]
+                    else:
+                        out_hidden[sample_index][layer] = \
+                                (hidden[layer][0][sample_index],
+                                hidden[layer][1][sample_index])
+
+        # transform extracted hidden state into the proper shape
+        # out hidden shape (batch_size, num_layers, (units)*)
+        # regular hidden shape (num_layers, (batch_size, units)*)
+        final_hidden = []
+        for layer in range(num_layers):
             if self.gru_over_lstm is True:
-                output, layer_hidden = cell(x, layer_hidden)
+                batch_insert = []
+                for sample in range(self.batch_size):
+                    batch_insert.append(out_hidden[sample][layer])
+                batch_insert = tf.convert_to_tensor(batch_insert)
+                final_hidden.append(batch_insert)
             else:
-                output, hidden1, hidden2 = cell(x, layer_hidden)
-                layer_hidden = [hidden1, hidden2]
-
-            new_hidden.append(layer_hidden)
-            x = output
+                batch_hidden0 = []
+                batch_hidden1 = []
+                for sample in range(self.batch_size):
+                    batch_hidden0.append(out_hidden[sample][layer][0])
+                    batch_hidden1.append(out_hidden[sample][layer][1])
+                batch_hidden0 = tf.convert_to_tensor(batch_hidden0)
+                batch_hidden1 = tf.convert_to_tensor(batch_hidden1)
+                final_hidden.append([batch_hidden0, batch_hidden1])
 
         # return outputs from the last layer 
-        # and hidden state from the last layer last timestep
-        return output, new_hidden
+        return output, final_hidden
 
     def initialize_hidden_state(self):
         return initialize_multilayer_hidden_state(self.layer_sizes, self.batch_size,
@@ -268,7 +345,8 @@ class Model(object):
                 encoder_sizes, 
                 self.config.batch_size,
                 embedding,
-                self.config.gru_over_lstm)
+                self.config.gru_over_lstm,
+                word2id)
 
         # decoder
         self.decoder = Decoder(
