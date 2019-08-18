@@ -89,14 +89,17 @@ class Encoder(tf.keras.Model):
         self.gru_over_lstm = gru_over_lstm
 
         # initialize cells
-        self.cells = []
+        self.fw_cells = []
+        self.bw_cells = []
         for i in range(len(layer_sizes)):
             name = "Encoder_Layer{}".format(i)
             size = layer_sizes[i]
             if gru_over_lstm is True:
-                self.cells.append(gru(size, name))
+                self.fw_cells.append(gru(size, name))
+                self.bw_cells.append(gru(size, name))
             else:
-                self.cells.append(lstm(size, name))
+                self.fw_cells.append(lstm(size, name))
+                self.bw_cells.append(lstm(size, name))
 
     def call(self, x, hidden):
         """ run encoder on input and output results
@@ -119,13 +122,19 @@ class Encoder(tf.keras.Model):
         x = self.embedding(x)
 
         new_hidden = []
-        for layer in range(len(self.cells)):
-            cell = self.cells[layer]
-            layer_hidden = hidden[layer]
+        for layer in range(len(self.fw_cells)):
+            cell_fw = self.fw_cells[layer]
+            cell_bw = self.bw_cells[layer]
+            fw_hidden, bw_hidden = hidden[layer]
 
             if self.gru_over_lstm is True:
-                output, layer_hidden = cell(x, layer_hidden)
+                fw_output, fw_hidden = cell_fw(x, fw_hidden)
+                bw_output, bw_hidden = cell_bw(tf.reverse(x, [1]), bw_hidden)
+
+                output = tf.concat([fw_output, bw_output], 2)
+                layer_hidden = [fw_hidden, bw_hidden]
             else:
+                # TODO update lstm to be bidirectional
                 output, hidden1, hidden2 = cell(x, layer_hidden)
                 layer_hidden = [hidden1, hidden2]
 
@@ -137,8 +146,16 @@ class Encoder(tf.keras.Model):
         return output, new_hidden
 
     def initialize_hidden_state(self):
-        return initialize_multilayer_hidden_state(self.layer_sizes, self.batch_size,
-                self.gru_over_lstm)
+        fw_hiddens = initialize_multilayer_hidden_state(self.layer_sizes, 
+                        self.batch_size, self.gru_over_lstm)
+        bw_hiddens = initialize_multilayer_hidden_state(self.layer_sizes, 
+                        self.batch_size, self.gru_over_lstm)
+        out_hidden = []
+        for i in range(len(fw_hiddens)):
+            hiddens = [fw_hiddens[i], bw_hiddens[i]]
+            out_hidden.append(hiddens)
+        return out_hidden
+
 
 class Decoder(tf.keras.Model):
     def __init__(self, layer_sizes, vocab_size, batch_size, embedding, gru_over_lstm):
@@ -250,7 +267,7 @@ class Model(object):
         decoder_sizes = [int(s_val) for s_val in config.decoder_sizes]
 
         # ensure encoder and decoder are compatible
-        assert encoder_sizes[-1] == decoder_sizes[0], \
+        assert encoder_sizes[-1] * 2 == decoder_sizes[0], \
                 "encoder is not compatible with decoder"
         
         # persona encoder
@@ -579,7 +596,7 @@ class Model(object):
         # note that enc_hidden must be the same dimension as the first layer 
         # of the decoder
         dec_hidden = self.decoder.initialize_hidden_state()
-        dec_hidden[0] = enc_hidden[-1]
+        dec_hidden[0] = tf.concat(enc_hidden[-1], 1)
 
         # run decoder
         # if outputs are available teacher forcing will be used
@@ -760,7 +777,8 @@ class Model(object):
                     tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Bias", bias)
             if self.config.use_persona_encoder is True:
                 record_histograms(self.persona_encoder.cells, "PersonaEncoder")
-            record_histograms(self.encoder.cells, "Encoder")
+            record_histograms(self.encoder.fw_cells, "Encoder_fw")
+            record_histograms(self.encoder.bw_cells, "Encoder_bw")
             record_histograms(self.decoder.cells, "Decoder")
 
             tf.contrib.summary.histogram("encoder_final_hidden",
