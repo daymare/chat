@@ -23,13 +23,6 @@ from parameter_search import perform_parameter_search
 from testing.test import run_all_tests
 
 
-# set eager to allow growth
-gpu_options = tf.GPUOptions(allow_growth=True)
-tf_config = tf.ConfigProto(gpu_options=gpu_options)
-tf.enable_eager_execution(config=tf_config)
-
-# set environment variable to force allow growth
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 
 
 config = tf.app.flags.FLAGS
@@ -115,6 +108,8 @@ tf.app.flags.DEFINE_boolean('use_parameter_override_file',
 tf.app.flags.DEFINE_string('parameter_override_filepath',
         'default', 'location of the parameter override file'
             + 'if default then will be changed to logdir/parameters.txt')
+tf.app.flags.DEFINE_boolean('allow_growth', False,
+        'whether tensorflow should only allocate memory as needed')
 tf.app.flags.DEFINE_boolean('debug', 
         False, 'run in debug mode?')
 tf.app.flags.DEFINE_string('mode',
@@ -145,6 +140,18 @@ logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 def main(_):
+    if config.allow_growth is True:
+        # set eager to allow growth
+        gpu_options = tf.GPUOptions(allow_growth=True)
+        tf_config = tf.ConfigProto(gpu_options=gpu_options)
+        tf.enable_eager_execution(config=tf_config)
+
+        # set environment variable to force allow growth
+        os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+    else:
+        # enable eager normally
+        tf.enable_eager_execution()
+
     # override checkpoint
     if config.checkpoint_dir == 'default':
         config.checkpoint_dir = config.logdir + "/model_save/"
