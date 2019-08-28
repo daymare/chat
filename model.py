@@ -479,6 +479,8 @@ class Model(object):
                     if self.global_step.numpy() % 100 == 0:
                         recent_avg_loss = sum(loss_history) / len(loss_history)
                         recent_avg_ppl = sum(ppl_history) / len(ppl_history)
+                        print("max memory usage (GB): {}".format(
+                            tf.contrib.memory_stats.MaxBytesInUse() / 10**9))
                         print("recent average loss: {}".format(recent_avg_loss))
                         print("recent average ppl: {}".format(recent_avg_ppl))
                         print("Epoch {}".format(self.epoch.numpy()))
@@ -505,6 +507,9 @@ class Model(object):
             # quit if we have done the correct number of epochs
             if self.config.use_epochs is True and self.epoch.numpy() >= num_epochs and num_epochs > 0:
                 quit = True
+
+        print("max memory usage (GB): {}".format(
+            tf.contrib.memory_stats.MaxBytesInUse() / 10**9))
 
         if parameter_search == True:
             recent_avg_loss = sum(loss_history) / len(loss_history)
