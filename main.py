@@ -267,7 +267,8 @@ def main(_):
     # train model
     elif config.mode == "train":
         logging.debug('training model')
-        model.train(train_data, test_data, config.train_steps)
+        model.train(train_data, test_data, config.train_steps,
+                num_epochs=config.epochs)
     elif config.mode == "unit_test":
         logging.debug('running unit tests')
         run_all_tests(config, train_data, word2vec, id2word, word2id)
