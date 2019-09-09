@@ -74,7 +74,7 @@ tf.app.flags.DEFINE_integer('parameter_search_epochs', 5,
 tf.app.flags.DEFINE_boolean('save_summary',
         True, 'controls whether summaries are saved during training.')
 tf.app.flags.DEFINE_integer('save_frequency',
-        200, 'frequency of summary saves')
+        400, 'frequency of summary saves')
 tf.app.flags.DEFINE_boolean('run_eval',
         False, 'controls whether eval is run or not')
 tf.app.flags.DEFINE_integer('eval_frequency',
