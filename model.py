@@ -569,9 +569,6 @@ class Model(object):
             cache=False):
         """ model call for all purposes.
             Supports inference, eval, and training.
-
-            Should basically be __call__ except with support for
-            training (IE batched input output)
         """
         logging_info = {}
 
