@@ -352,7 +352,8 @@ class Model(object):
         print("global step after load: {}".format(self.global_step.numpy()))
 
     def train(self, train_data, test_data, num_steps=-1, 
-            num_epochs=-1, parameter_search=False):
+            num_epochs=-1, parameter_search=False,
+            memtest=False):
 
         # keep track of average loss and ppl
         loss_history = []
@@ -380,7 +381,8 @@ class Model(object):
             for batch in get_batch_iterator(
                 train_data,
                 self.config.batch_size,
-                self.word2id):
+                self.word2id,
+                memtest=memtest):
 
                 self.global_step.assign_add(1)
                 start = time.time()

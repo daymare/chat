@@ -114,7 +114,7 @@ tf.app.flags.DEFINE_boolean('debug',
         False, 'run in debug mode?')
 tf.app.flags.DEFINE_string('mode',
         'train', ('what mode to run in. Available modes are train, inference, '
-            + 'data_viz, parameter_search, and unit_test'))
+            + 'data_viz, parameter_search, memtest, and unit_test'))
 
 # runtime "flags"
 # computed at runtime
@@ -272,6 +272,12 @@ def main(_):
     elif config.mode == "unit_test":
         logging.debug('running unit tests')
         run_all_tests(config, train_data, word2vec, id2word, word2id)
+    elif config.mode == "memtest":
+        # TODO investigate potential memory leak
+        # memory usage seems to increase inverse exponentially
+        logging.debug('running memtest')
+        config.use_epochs = True
+        model.train(train_data, test_data, memtest=True, num_epochs=2000)
     else:
         print("invalid mode! Exiting.")
 

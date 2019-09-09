@@ -5,6 +5,7 @@ import numpy as np
 import tensorflow as tf
 
 from util.load_util import Chat
+from util.general_util import get_size
 
 
 def sentence_to_np(sentence, max_sentence_len):
@@ -114,10 +115,24 @@ def get_sample(dataset, word2id,
     return persona, conversation, response
 
 def get_batch_iterator(dataset, batch_size,
-        word2id):
+        word2id, memtest=False):
     """ get an iterator over consecutive batches in the eval set
 
     note that we may miss up to batch_size-1 samples in the dataset
+
+    in memtest mode this function will find the largest possible batch in the
+    dataset and return just that batch.
+
+    inputs:
+        dataset - dataset to iterate over
+        batch_size - size of batches to retrieve
+        word2id - dictionary from words to their id values
+        memtest - whether memtest mode is enabled or not
+    outputs:
+        iterator (yield) over batches of:
+            personas - persona for each sample in batch
+            sentences - conversation up to each sample in batch
+            responses - dataset response for each sample in batch
     """
     def pad_personas(personas):
         """ pads each persona to the max length among all persona sentences
@@ -174,10 +189,13 @@ def get_batch_iterator(dataset, batch_size,
     sentences = []
     responses = []
 
-    for sample in get_sample_iterator(
-            dataset, 
-            word2id):
+    if memtest is True:
+        fat_samples = get_fattest_batch(dataset, word2id, batch_size)
+        sample_iterable = fat_samples
+    else:
+        sample_iterable = get_sample_iterator(dataset, word2id)
 
+    for sample in sample_iterable:
         # break out the sample
         persona, conversation, response = sample
 
@@ -248,6 +266,80 @@ def get_sample_iterator(dataset, word2id):
         yield get_sample(dataset, word2id,
                 chat_index, sample_index)
 
+
+def get_fattest_batch(dataset, word2id, batch_size):
+    """
+        retrieve the batch from the dataset whos conversation consumes the most
+        memory
+
+        note that this function has a static variable to cache previous fattest
+        batches
+    """
+    if get_fattest_batch.previous_fattest is not None:
+        return get_fattest_batch.previous_fattest
+
+    def update_fat_list(fat_list, insert_candidate, max_len):
+        """
+            check if the candidate insert is fat enough to make the list and
+            insert it if it is.
+            Maintain the fat list to a certain maximum size.
+
+            fat list will be a list of tuple(element_sizes, elements)
+        """
+        # TODO this function could be more efficient
+
+        candidate_size = get_size(insert_candidate)
+        
+        # insert candidate if it is fat enough
+        if len(fat_list) == 0:
+            fat_list.append((candidate_size, insert_candidate))
+        else:
+            first_element_size = fat_list[0][0]
+            if candidate_size >= first_element_size or len(fat_list) < max_len:
+                # binary search to insert in sorted list
+                low = 0
+                high = len(fat_list) - 1
+
+                while low < high:
+                    middle = ((high - low) // 2) + low
+                    if candidate_size > fat_list[middle][0]:
+                        low = middle + 1
+                    else:
+                        high = middle
+
+                # insert element
+                if candidate_size > fat_list[low][0]:
+                    fat_list.insert(low+1, (candidate_size, insert_candidate))
+                else:
+                    fat_list.insert(low, (candidate_size, insert_candidate))
+
+        # maintain size of fat list
+        if len(fat_list) > max_len:
+            del(fat_list[0])
+
+
+    fat_samples = []
+    for chat_index in range(len(dataset)):
+        chat = dataset[chat_index]
+    
+        # get the fattest sample in this chat
+        # (sample with the whole conversation as prior)
+        fattest_conversation_index = len(chat.chat) - 1
+        # fat sample: tuple(persona, conversation, response)
+        fat_sample = get_sample(dataset, word2id, chat_index,
+                fattest_conversation_index)
+            
+        update_fat_list(fat_samples, fat_sample, batch_size)
+
+    # extract out just the samples
+    out_samples = []
+    for pair in fat_samples:
+        out_samples.append(pair[1])
+
+    get_fattest_batch.previous_fattest = out_samples
+    
+    return out_samples
+get_fattest_batch.previous_fattest = None
 
 
 def get_loss(predictions, responses, loss_fn):
