@@ -34,7 +34,7 @@ class PersonaEncoder(tf.keras.Model):
             else:
                 self.cells.append(lstm(size, name))
 
-    def call(self, personas):
+    def call(self, personas, training=False):
         """
             personas - np array 
                 (batch_size, max_persona_sentences, max_sentence_len)
@@ -61,8 +61,14 @@ class PersonaEncoder(tf.keras.Model):
                     output, hidden1, hidden2 = cell(x, layer_hidden)
                     layer_hidden = [hidden1, hidden2]
 
+                # apply batch normalization
+                output = tf.keras.layers.BatchNormalization()(output,
+                        training=training)
+
                 x = output
 
+            layer_hidden = tf.keras.layers.BatchNormalization()(layer_hidden,
+                    training=training)
             outputs.append(layer_hidden)
 
         # reshape outputs to be what we expect
@@ -101,7 +107,7 @@ class Encoder(tf.keras.Model):
                 self.fw_cells.append(lstm(size, name))
                 self.bw_cells.append(lstm(size, name))
 
-    def call(self, x, hidden):
+    def call(self, x, hidden, training=False):
         """ run encoder on input and output results
             inputs:
                 x - input conversation encoded as ids 
@@ -118,10 +124,13 @@ class Encoder(tf.keras.Model):
                         (batch_size, max_batch_sentence_len, units)
                 new_hidden - hidden states at the end of running through network
                         same types as hidden inputs
+
+
         """
         x = self.embedding(x)
 
         new_hidden = []
+        # call each layer
         for layer in range(len(self.fw_cells)):
             cell_fw = self.fw_cells[layer]
             cell_bw = self.bw_cells[layer]
@@ -131,6 +140,13 @@ class Encoder(tf.keras.Model):
                 fw_output, fw_hidden = cell_fw(x, fw_hidden)
                 bw_output, bw_hidden = cell_bw(tf.reverse(x, [1]), bw_hidden)
 
+                # apply batch normalization
+                fw_output = tf.keras.layers.BatchNormalization()(fw_output, 
+                        training=training)
+                bw_output = tf.keras.layers.BatchNormalization()(bw_output, 
+                        training=training)
+
+                # set up for next layer
                 output = tf.concat([fw_output, bw_output], 2)
                 layer_hidden = [fw_hidden, bw_hidden]
             else:
@@ -140,6 +156,19 @@ class Encoder(tf.keras.Model):
 
             new_hidden.append(layer_hidden)
             x = output
+
+        # apply batch norm to final hidden states
+        tmp_hidden = []
+        for hidden in new_hidden:
+            tmp_layer_hidden = []
+
+            # TODO update when we update lstm to be bidirectional
+            for direction_hidden in hidden:
+                tmp_layer_hidden.append(tf.keras.layers.BatchNormalization()(
+                    direction_hidden, training=training))
+
+            tmp_hidden.append(tmp_layer_hidden)
+        new_hidden = tmp_hidden
 
         # return outputs from the last layer 
         # and hidden state from the last layer last timestep
@@ -184,7 +213,8 @@ class Decoder(tf.keras.Model):
         self.W2 = tf.keras.layers.Dense(attention_units, name="W2")
         self.V = tf.keras.layers.Dense(1, name="V")
 
-    def call(self, x, persona_embeddings, hidden, use_persona_encoder=False):
+    def call(self, x, persona_embeddings, hidden, use_persona_encoder=False,
+            training=False):
         # x shape after passing through embedding: 
         # (batch_szie, 1, embedding_dim)
         x = self.embedding(x)
@@ -232,6 +262,9 @@ class Decoder(tf.keras.Model):
                 layer_hidden = [hidden1, hidden2]
 
             new_hidden.append(layer_hidden)
+
+            output = tf.keras.layers.BatchNormalization()(output,
+                    training=training)
 
             x = output
 
@@ -400,7 +433,8 @@ class Model(object):
                     tape.watch(responses)
 
                     # predictions shape (predicted_words, batch_size, vocab_len)
-                    predictions, logging_info = self.call(sentences, responses, personas)
+                    predictions, logging_info = self.call(sentences, responses, personas,
+                            training=True)
 
                     # calculate cosine similarity between last two enc_hidden outputs
                     # this is to check that input is being processed meaningfully
@@ -568,7 +602,7 @@ class Model(object):
             return avg_loss, avg_ppl
 
     def call(self, inputs, expected_outputs=None, personas=None, reset=True,
-            cache=False):
+            cache=False, training=False):
         """ model call for all purposes.
             Supports inference, eval, and training.
         """
@@ -576,7 +610,7 @@ class Model(object):
 
         # encode persona
         if self.config.use_persona_encoder is True and personas is not None:
-            persona_embeddings = self.persona_encoder(personas)
+            persona_embeddings = self.persona_encoder(personas, training=training)
             self.persona_embeddings = persona_embeddings
         else:
             assert self.persona_embeddings is not None, \
@@ -589,7 +623,7 @@ class Model(object):
         else:
             enc_hidden = self.encoder_cache
 
-        _, enc_hidden = self.encoder(inputs, enc_hidden)
+        _, enc_hidden = self.encoder(inputs, enc_hidden, training=training)
 
         # note encoder hidden shape is:
         # List(num_layers, (batch_size, units)), for GRU
@@ -624,7 +658,8 @@ class Model(object):
                     dec_input,
                     persona_embeddings,
                     dec_hidden,
-                    self.config.use_persona_encoder)
+                    self.config.use_persona_encoder,
+                    training=training)
             
             # predictions shape (batch_size, dict_size)
             # output shape (decoder_limit, batch_size, dict_size)
@@ -815,8 +850,6 @@ class Model(object):
                     tf.contrib.summary.scalar("{}_gradient_mag".format(variable.name[:-2]), tf.norm(gradient))
                 except Exception as e:
                     pass
-
-
 
 
 
