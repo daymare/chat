@@ -5,8 +5,6 @@ import tensorflow as tf
 
 
 
-# TODO test using glorot uniform recurrent initialization
-
 def lstm(units, name=None):
     if tf.test.is_gpu_available():
         return tf.keras.layers.CuDNNLSTM(units,
