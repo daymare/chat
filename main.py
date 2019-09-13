@@ -46,8 +46,6 @@ tf.app.flags.DEFINE_string('embedding_fname',
         'filepath of word embeddings')
 
 # model flags
-tf.app.flags.DEFINE_bool('gru_over_lstm', True,
-        'whether to use grus instead of lstms in the model')
 tf.app.flags.DEFINE_list('encoder_sizes', '400, 400, 400',
         'size of each layer in the encoder')
 tf.app.flags.DEFINE_boolean('input_independant', False,

@@ -10,29 +10,24 @@ from util.train_util import get_batch_iterator
 from util.train_util import get_loss
 from util.train_util import calculate_hidden_cos_similarity
 
-from util.model_util import lstm
 from util.model_util import gru
 from util.model_util import initialize_multilayer_hidden_state
 
 
 class PersonaEncoder(tf.keras.Model):
-    def __init__(self, layer_sizes, batch_size, embedding, gru_over_lstm):
+    def __init__(self, layer_sizes, batch_size, embedding):
         super(PersonaEncoder, self).__init__()
 
         self.batch_size = batch_size
         self.layer_sizes = layer_sizes
         self.embedding = embedding
-        self.gru_over_lstm = gru_over_lstm
 
         # initialize cells
         self.cells = []
         for i in range(len(layer_sizes)):
             name = "PersonaEncoder_Layer{}".format(i)
             size = layer_sizes[i]
-            if gru_over_lstm is True:
-                self.cells.append(gru(size, name))
-            else:
-                self.cells.append(lstm(size, name))
+            self.cells.append(gru(size, name))
 
     def call(self, personas, training=False):
         """
@@ -55,11 +50,7 @@ class PersonaEncoder(tf.keras.Model):
                 cell = self.cells[layer]
                 layer_hidden = hidden[layer]
 
-                if self.gru_over_lstm is True:
-                    output, layer_hidden = cell(x, layer_hidden)
-                else:
-                    output, hidden1, hidden2 = cell(x, layer_hidden)
-                    layer_hidden = [hidden1, hidden2]
+                output, layer_hidden = cell(x, layer_hidden)
 
                 # apply batch normalization
                 output = tf.keras.layers.BatchNormalization()(output,
@@ -73,26 +64,22 @@ class PersonaEncoder(tf.keras.Model):
 
         # reshape outputs to be what we expect
         outputs = tf.convert_to_tensor(outputs)
-        if self.gru_over_lstm is True:
-            outputs = tf.transpose(outputs, [1, 0, 2])
-        else:
-            outputs = tf.transpose(outputs, [2, 0, 1, 3])
+        outputs = tf.transpose(outputs, [1, 0, 2])
 
 
         return outputs
 
     def initialize_hidden_state(self):
         return initialize_multilayer_hidden_state(self.layer_sizes, 
-                self.batch_size, self.gru_over_lstm)
+                self.batch_size)
 
 class Encoder(tf.keras.Model):
-    def __init__(self, layer_sizes, batch_size, embedding, gru_over_lstm):
+    def __init__(self, layer_sizes, batch_size, embedding):
         super(Encoder, self).__init__()
 
         self.batch_size = batch_size
         self.layer_sizes = layer_sizes
         self.embedding = embedding
-        self.gru_over_lstm = gru_over_lstm
 
         # initialize cells
         self.fw_cells = []
@@ -100,12 +87,8 @@ class Encoder(tf.keras.Model):
         for i in range(len(layer_sizes)):
             name = "Encoder_Layer{}".format(i)
             size = layer_sizes[i]
-            if gru_over_lstm is True:
-                self.fw_cells.append(gru(size, name))
-                self.bw_cells.append(gru(size, name))
-            else:
-                self.fw_cells.append(lstm(size, name))
-                self.bw_cells.append(lstm(size, name))
+            self.fw_cells.append(gru(size, name))
+            self.bw_cells.append(gru(size, name))
 
     def call(self, x, hidden, training=False):
         """ run encoder on input and output results
@@ -115,9 +98,6 @@ class Encoder(tf.keras.Model):
                 hidden - hidden state to use
                     for GRU:
                         List(num_layers, (batch_size, units))
-                    for LSTM:
-                        List(num_layers, [(batch_size, units), 
-                                            (batch_size, units)]
 
             outputs:
                 output - results of running through network
@@ -136,23 +116,18 @@ class Encoder(tf.keras.Model):
             cell_bw = self.bw_cells[layer]
             fw_hidden, bw_hidden = hidden[layer]
 
-            if self.gru_over_lstm is True:
-                fw_output, fw_hidden = cell_fw(x, fw_hidden)
-                bw_output, bw_hidden = cell_bw(tf.reverse(x, [1]), bw_hidden)
+            fw_output, fw_hidden = cell_fw(x, fw_hidden)
+            bw_output, bw_hidden = cell_bw(tf.reverse(x, [1]), bw_hidden)
 
-                # apply batch normalization
-                fw_output = tf.keras.layers.BatchNormalization()(fw_output, 
-                        training=training)
-                bw_output = tf.keras.layers.BatchNormalization()(bw_output, 
-                        training=training)
+            # apply batch normalization
+            fw_output = tf.keras.layers.BatchNormalization()(fw_output, 
+                    training=training)
+            bw_output = tf.keras.layers.BatchNormalization()(bw_output, 
+                    training=training)
 
-                # set up for next layer
-                output = tf.concat([fw_output, bw_output], 2)
-                layer_hidden = [fw_hidden, bw_hidden]
-            else:
-                # TODO update lstm to be bidirectional
-                output, hidden1, hidden2 = cell(x, layer_hidden)
-                layer_hidden = [hidden1, hidden2]
+            # set up for next layer
+            output = tf.concat([fw_output, bw_output], 2)
+            layer_hidden = [fw_hidden, bw_hidden]
 
             new_hidden.append(layer_hidden)
             x = output
@@ -162,7 +137,6 @@ class Encoder(tf.keras.Model):
         for hidden in new_hidden:
             tmp_layer_hidden = []
 
-            # TODO update when we update lstm to be bidirectional
             for direction_hidden in hidden:
                 tmp_layer_hidden.append(tf.keras.layers.BatchNormalization()(
                     direction_hidden, training=training))
@@ -176,9 +150,9 @@ class Encoder(tf.keras.Model):
 
     def initialize_hidden_state(self):
         fw_hiddens = initialize_multilayer_hidden_state(self.layer_sizes, 
-                        self.batch_size, self.gru_over_lstm)
+                        self.batch_size)
         bw_hiddens = initialize_multilayer_hidden_state(self.layer_sizes, 
-                        self.batch_size, self.gru_over_lstm)
+                        self.batch_size)
         out_hidden = []
         for i in range(len(fw_hiddens)):
             hiddens = [fw_hiddens[i], bw_hiddens[i]]
@@ -187,13 +161,12 @@ class Encoder(tf.keras.Model):
 
 
 class Decoder(tf.keras.Model):
-    def __init__(self, layer_sizes, vocab_size, batch_size, embedding, gru_over_lstm):
+    def __init__(self, layer_sizes, vocab_size, batch_size, embedding):
         super(Decoder, self).__init__()
         
         self.batch_size = batch_size
         self.layer_sizes = layer_sizes
         self.embedding = embedding
-        self.gru_over_lstm = gru_over_lstm
         self.projection_layer = tf.keras.layers.Dense(vocab_size,
                 name="projection")
 
@@ -202,10 +175,7 @@ class Decoder(tf.keras.Model):
         for i in range(len(layer_sizes)):
             name = "Decoder_Layer{}".format(i)
             size = layer_sizes[i]
-            if gru_over_lstm is True:
-                self.cells.append(gru(size, name))
-            else:
-                self.cells.append(lstm(size, name))
+            self.cells.append(gru(size, name))
 
         # attention stuff
         attention_units = self.layer_sizes[0]
@@ -220,17 +190,8 @@ class Decoder(tf.keras.Model):
         x = self.embedding(x)
 
         if use_persona_encoder is True:
-            # concatenate the two hidden states for hidden and persona embeddings
-            # TODO really look at this are and make sure nothing is screwed up
-            if self.gru_over_lstm is False:
-                persona_embedding_list = [persona_embeddings[:,:,i,:] for i in range(persona_embeddings.shape[2])]
-                persona_embeddings = tf.concat(persona_embedding_list, 2)
-
             # add time dimension to hidden state
             layer_hidden = hidden[0]
-            if self.gru_over_lstm is False:
-                # concatenate the two hidden states provided by lstm
-                layer_hidden = tf.concat(layer_hidden, 1)
             hidden_w_time_axis = tf.expand_dims(layer_hidden, 1)
 
             # get scores
@@ -254,12 +215,7 @@ class Decoder(tf.keras.Model):
         for layer in range(len(self.cells)):
             cell = self.cells[layer]
             layer_hidden = hidden[layer]
-
-            if self.gru_over_lstm is True:
-                output, layer_hidden = cell(x, layer_hidden)
-            else:
-                output, hidden1, hidden2 = cell(x, layer_hidden)
-                layer_hidden = [hidden1, hidden2]
+            output, layer_hidden = cell(x, layer_hidden)
 
             new_hidden.append(layer_hidden)
 
@@ -280,7 +236,7 @@ class Decoder(tf.keras.Model):
 
     def initialize_hidden_state(self):
         return initialize_multilayer_hidden_state(self.layer_sizes, 
-                self.batch_size, self.gru_over_lstm)
+                self.batch_size)
 
 
 class Model(object):
@@ -308,8 +264,7 @@ class Model(object):
             self.persona_encoder = PersonaEncoder(
                     persona_encoder_sizes, 
                     self.config.batch_size,
-                    embedding,
-                    self.config.gru_over_lstm)
+                    embedding)
         else:
             self.persona_encoder = None
 
@@ -317,16 +272,14 @@ class Model(object):
         self.encoder = Encoder(
                 encoder_sizes, 
                 self.config.batch_size,
-                embedding,
-                self.config.gru_over_lstm)
+                embedding)
 
         # decoder
         self.decoder = Decoder(
                 decoder_sizes, 
                 self.config.vocab_size,
                 self.config.batch_size,
-                embedding,
-                self.config.gru_over_lstm)
+                embedding)
 
         # optimizer and loss function
         self.optimizer = optimizer = \
@@ -439,15 +392,11 @@ class Model(object):
                     # calculate cosine similarity between last two enc_hidden outputs
                     # this is to check that input is being processed meaningfully
 
-                    if self.config.gru_over_lstm is True:
-                        enc_hidden = logging_info["last_enc_hidden"][0]
-                    else:
-                        enc_hidden = logging_info["last_enc_hidden"][1][0]
-                        print("last enc hidden: {}".format(logging_info["last_enc_hidden"]))
+                    enc_hidden = logging_info["last_enc_hidden"][0]
 
                     logging_info["enc_hidden_cos_similarity"] = \
                             calculate_hidden_cos_similarity(enc_hidden, 
-                                    last_enc_hidden, self.config.gru_over_lstm)
+                                    last_enc_hidden)
                     last_enc_hidden = enc_hidden
 
                     # calculate loss and ppl
@@ -744,12 +693,7 @@ class Model(object):
             tf.contrib.summary.scalar('perplexity', li["batch_ppl"])
 
             # enc hidden norm
-            if self.config.gru_over_lstm is True:
-                tf.contrib.summary.scalar('enc_hidden_norm', tf.norm(li["last_enc_hidden"][0]))
-            else:
-                tf.contrib.summary.scalar('enc_hidden_0_norm', tf.norm(li["last_enc_hidden"][0][0]))
-                tf.contrib.summary.scalar('enc_hidden_1_norm', tf.norm(li["last_enc_hidden"][1][0]))
-
+            tf.contrib.summary.scalar('enc_hidden_norm', tf.norm(li["last_enc_hidden"][0]))
 
             # enc hidden cosine similarity
             tf.contrib.summary.scalar('enc_hidden_cos_sim', li["enc_hidden_cos_similarity"])

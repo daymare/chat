@@ -359,7 +359,7 @@ def get_loss(predictions, responses, loss_fn):
 
     return loss, ppl
 
-def calculate_hidden_cos_similarity(hidden1, hidden2, gru_over_lstm):
+def calculate_hidden_cos_similarity(hidden1, hidden2):
     """ calculate the cos similarity between two hidden states
 
         Notes:
