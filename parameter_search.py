@@ -7,8 +7,6 @@ import traceback
 
 import tensorflow as tf
 
-from tensorflow.contrib.memory_stats import BytesInUse
-
 def get_loguniform(low_exponent, high_exponent):
     value = random.random() * 10
     exponent = random.randint(low_exponent, high_exponent)
@@ -190,8 +188,6 @@ def perform_parameter_search(model_class, flags,
         print_std_and_file(out_file, "\n\n")
         print_std_and_file(out_file, "test_number: " + \
                 str(num_tests))
-        print_std_and_file(out_file, "memory usage (MB): {}"
-                .format(BytesInUse().numpy() / 1000000))
         print_std_and_file(out_file, "tests since last best: " + \
                 str(tests_since_last_best))
         print_std_and_file(out_file, "loss: " + str(loss) + \
