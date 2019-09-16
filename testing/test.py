@@ -18,7 +18,7 @@ def run_all_tests(config, train_data, word2vec, id2word, word2id):
     # set config and random seed
     logging.debug('setup for testing')
     test_util.set_test_config(config)
-    tf.random.set_random_seed(284586569)
+    tf.compat.v1.random.set_random_seed(284586569)
     random.seed(206738548)
 
     check_training_runs(config, train_data, word2vec, id2word, word2id)
@@ -35,7 +35,7 @@ def check_training_runs(config, train_data, word2vec, id2word, word2id):
     """
     logging.debug('running training check')
 
-    tf.reset_default_graph()
+    tf.compat.v1.reset_default_graph()
     model = Model(config, word2vec, id2word, word2id)
 
     model.train(train_data, None, 5)
@@ -49,7 +49,7 @@ def all_weights_updated_test(config, train_data, word2vec, id2word, word2id):
     logging.debug('running all weights updated test')
 
     # init model
-    tf.reset_default_graph()
+    tf.compat.v1.reset_default_graph()
     model = Model(config, word2vec, id2word, word2id)
 
     # get model weights before
@@ -74,7 +74,7 @@ def save_load_test(config, train_data, word2vec, id2word, word2id):
     logging.debug('running save load test!')
 
     # init model
-    tf.reset_default_graph()
+    tf.compat.v1.reset_default_graph()
     config.checkpoint_dir = './testing/test_dir'
     model = Model(config, word2vec, id2word, word2id)
 
@@ -116,7 +116,7 @@ def save_load_test(config, train_data, word2vec, id2word, word2id):
         pred_after = predictions_after[i]
 
         difference = pred_after - pred_before
-        mag = tf.norm(difference)
+        mag = tf.norm(tensor=difference)
 
         assert mag < 0.001, "test found predictions were different!"
 

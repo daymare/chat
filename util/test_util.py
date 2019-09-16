@@ -27,7 +27,7 @@ def get_trainable_variables_numpy():
     """ get the tf trainable variables as their numpy values
         Should not change with training
     """
-    trainable_vars = tf.trainable_variables()
+    trainable_vars = tf.compat.v1.trainable_variables()
     np_vars = []
     for variable in trainable_vars:
         np_vars.append(variable.numpy())

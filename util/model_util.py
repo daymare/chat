@@ -7,7 +7,7 @@ import tensorflow as tf
 
 def gru(units, name=None):
     if tf.test.is_gpu_available():
-        return tf.keras.layers.CuDNNGRU(
+        return tf.compat.v1.keras.layers.CuDNNGRU(
                 units,
                 return_sequences=True,
                 return_state=True,

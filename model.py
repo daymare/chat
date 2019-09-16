@@ -63,8 +63,8 @@ class PersonaEncoder(tf.keras.Model):
             outputs.append(layer_hidden)
 
         # reshape outputs to be what we expect
-        outputs = tf.convert_to_tensor(outputs)
-        outputs = tf.transpose(outputs, [1, 0, 2])
+        outputs = tf.convert_to_tensor(value=outputs)
+        outputs = tf.transpose(a=outputs, perm=[1, 0, 2])
 
 
         return outputs
@@ -204,7 +204,7 @@ class Decoder(tf.keras.Model):
 
             # get context vector
             context_vector = attention_weights * persona_embeddings
-            context_vector = tf.reduce_sum(context_vector, axis=1)
+            context_vector = tf.reduce_sum(input_tensor=context_vector, axis=1)
             context_vector = tf.expand_dims(context_vector, 1)
 
             x = tf.concat([context_vector, x], axis=-1)
@@ -283,10 +283,10 @@ class Model(object):
 
         # optimizer and loss function
         self.optimizer = optimizer = \
-            tf.train.AdamOptimizer(learning_rate=config.learning_rate)
+            tf.compat.v1.train.AdamOptimizer(learning_rate=config.learning_rate)
 
         # global step and epoch
-        self.global_step = tf.train.get_or_create_global_step()
+        self.global_step = tf.compat.v1.train.get_or_create_global_step()
         self.epoch = tf.Variable(0)
 
         # checkpoints
@@ -320,7 +320,7 @@ class Model(object):
         loss_ = tf.nn.sparse_softmax_cross_entropy_with_logits(
                 labels=real, logits=pred)
         perplexity = tf.exp(loss_)
-        return tf.reduce_mean(loss_), tf.reduce_mean(perplexity)
+        return tf.reduce_mean(input_tensor=loss_), tf.reduce_mean(input_tensor=perplexity)
 
     def load_config(self, config, word2vec, id2word, word2id):
         self.config = config
@@ -355,7 +355,7 @@ class Model(object):
         if self.config.save_summary == True:
             logdir = self.config.logdir
 
-            summary_writer = tf.contrib.summary.create_file_writer(logdir)
+            summary_writer = tf.compat.v2.summary.create_file_writer(logdir=logdir)
             summary_writer.set_as_default()
 
         last_enc_hidden = None
@@ -405,7 +405,7 @@ class Model(object):
                     # get model responses
                     model_response = []
                     for t in range(len(predictions)):
-                        predicted_id = tf.argmax(predictions[t][0]).numpy()
+                        predicted_id = tf.argmax(input=predictions[t][0]).numpy()
                         model_response.append(predicted_id)
 
                 batch_loss = loss
@@ -614,13 +614,13 @@ class Model(object):
                 dec_input = tf.expand_dims(expected_outputs[:, t], 1)
             else:
                 # for inference
-                dec_input = tf.argmax(predictions, axis=1)
+                dec_input = tf.argmax(input=predictions, axis=1)
                 dec_input = tf.expand_dims(dec_input, 0)
 
             # if inference check for <end> token
             if expected_outputs is None:
                 # TODO eventually make this work for multibatch
-                chosen_word = tf.argmax(predictions, axis=1)[0]
+                chosen_word = tf.argmax(input=predictions, axis=1)[0]
                 dec_out_ids.append(chosen_word)
                 if self.id2word[chosen_word] == "<end>":
                     break
@@ -659,7 +659,7 @@ class Model(object):
         out_ids = []
         out_string = []
         for prediction in predictions:
-            cur_id = tf.argmax(prediction[0])
+            cur_id = tf.argmax(input=prediction[0])
             out_ids.append(cur_id)
             out_string.append(self.id2word[cur_id])
 
@@ -673,28 +673,28 @@ class Model(object):
 
         # record eval loss
         if li["eval_loss"] > 0:
-            with (tf.contrib.summary.always_record_summaries()):
+            with (tf.compat.v2.summary.record_if(True)):
                 # record eval performance
                 print('Eval loss: {:.4f}'.format(li["eval_loss"].numpy()))
                 print('Eval perplexity: {:.4f}'.format(li["eval_ppl"].numpy()))
-                tf.contrib.summary.scalar('eval_loss', li["eval_loss"])
-                tf.contrib.summary.scalar('eval_ppl', li["eval_ppl"])
+                tf.compat.v2.summary.scalar(name='eval_loss', data=li["eval_loss"], step=tf.compat.v1.train.get_or_create_global_step())
+                tf.compat.v2.summary.scalar(name='eval_ppl', data=li["eval_ppl"], step=tf.compat.v1.train.get_or_create_global_step())
 
         # record all other summaries
         with (tf.contrib.summary.record_summaries_every_n_global_steps(
                     self.config.save_frequency)):
             # loss and perplexity
-            tf.contrib.summary.scalar('loss', li["batch_loss"])
-            tf.contrib.summary.scalar('perplexity', li["batch_ppl"])
+            tf.compat.v2.summary.scalar(name='loss', data=li["batch_loss"], step=tf.compat.v1.train.get_or_create_global_step())
+            tf.compat.v2.summary.scalar(name='perplexity', data=li["batch_ppl"], step=tf.compat.v1.train.get_or_create_global_step())
 
             # enc hidden norm
-            tf.contrib.summary.scalar('enc_hidden_norm', tf.norm(li["last_enc_hidden"][0]))
+            tf.compat.v2.summary.scalar(name='enc_hidden_norm', data=tf.norm(tensor=li["last_enc_hidden"][0]), step=tf.compat.v1.train.get_or_create_global_step())
 
             # enc hidden cosine similarity
-            tf.contrib.summary.scalar('enc_hidden_cos_sim', li["enc_hidden_cos_similarity"])
+            tf.compat.v2.summary.scalar(name='enc_hidden_cos_sim', data=li["enc_hidden_cos_similarity"], step=tf.compat.v1.train.get_or_create_global_step())
 
             # text output
-            text_meta = tf.SummaryMetadata()
+            text_meta = tf.compat.v1.SummaryMetadata()
             text_meta.plugin_data.plugin_name = "text"
 
             # always take index 0 as our example output
@@ -708,8 +708,8 @@ class Model(object):
                         break
                     else:
                         persona_words.append(self.id2word[word])
-            persona_text = tf.convert_to_tensor(" ".join(persona_words))
-            tf.contrib.summary.generic('persona', persona_text, metadata=text_meta)
+            persona_text = tf.convert_to_tensor(value=" ".join(persona_words))
+            tf.compat.v2.summary.write(tag='persona', data=persona_text, metadata=text_meta, step=tf.compat.v1.train.get_or_create_global_step())
 
             ## sentence
             # sentences shape: (batch_size, max_conversation_words)
@@ -719,8 +719,8 @@ class Model(object):
                 word = conversation[i]
                 conversation_words.append(self.id2word[word])
 
-            conversation_text = tf.convert_to_tensor(" ".join(conversation_words))
-            tf.contrib.summary.generic('conversation', conversation_text, metadata=text_meta)
+            conversation_text = tf.convert_to_tensor(value=" ".join(conversation_words))
+            tf.compat.v2.summary.write(tag='conversation', data=conversation_text, metadata=text_meta, step=tf.compat.v1.train.get_or_create_global_step())
 
             ## response
             # response shape: (batch_size, max_sentence_len)
@@ -731,8 +731,8 @@ class Model(object):
                     break
                 else:
                     response_words.append(self.id2word[word])
-            response_text = tf.convert_to_tensor(" ".join(response_words))
-            tf.contrib.summary.generic('response', response_text, metadata=text_meta)
+            response_text = tf.convert_to_tensor(value=" ".join(response_words))
+            tf.compat.v2.summary.write(tag='response', data=response_text, metadata=text_meta, step=tf.compat.v1.train.get_or_create_global_step())
 
             ## model response
             model_words = []
@@ -741,8 +741,8 @@ class Model(object):
                     break
                 else:
                     model_words.append(self.id2word[word])
-            model_text = tf.convert_to_tensor(" ".join(model_words))
-            tf.contrib.summary.generic('model_response', model_text, metadata=text_meta)
+            model_text = tf.convert_to_tensor(value=" ".join(model_words))
+            tf.compat.v2.summary.write(tag='model_response', data=model_text, metadata=text_meta, step=tf.compat.v1.train.get_or_create_global_step())
 
             # model histograms
             # encoder
@@ -750,17 +750,17 @@ class Model(object):
                 for i in range(len(cells)):
                     cell = cells[i]
                     kernel, recurrent_kernel, bias = cell.variables
-                    tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Kernel", kernel)
-                    tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_ReccurentKernel", recurrent_kernel)
-                    tf.contrib.summary.histogram(name + "layer" + str(i+1) + "_Bias", bias)
+                    tf.compat.v2.summary.histogram(name=name + "layer" + str(i+1) + "_Kernel", data=kernel, step=tf.compat.v1.train.get_or_create_global_step())
+                    tf.compat.v2.summary.histogram(name=name + "layer" + str(i+1) + "_ReccurentKernel", data=recurrent_kernel, step=tf.compat.v1.train.get_or_create_global_step())
+                    tf.compat.v2.summary.histogram(name=name + "layer" + str(i+1) + "_Bias", data=bias, step=tf.compat.v1.train.get_or_create_global_step())
             if self.config.use_persona_encoder is True:
                 record_histograms(self.persona_encoder.cells, "PersonaEncoder")
             record_histograms(self.encoder.fw_cells, "Encoder_fw")
             record_histograms(self.encoder.bw_cells, "Encoder_bw")
             record_histograms(self.decoder.cells, "Decoder")
 
-            tf.contrib.summary.histogram("encoder_final_hidden",
-                    li["last_enc_hidden"])
+            tf.compat.v2.summary.histogram(name="encoder_final_hidden",
+                    data=li["last_enc_hidden"], step=tf.compat.v1.train.get_or_create_global_step())
 
             ## decoder histograms
             projection_kernel, projection_bias = self.decoder.projection_layer.variables
@@ -769,15 +769,15 @@ class Model(object):
                 w2_kernel, w2_bias = self.decoder.W2.variables
                 v_kernel, v_bias = self.decoder.V.variables
 
-                tf.contrib.summary.histogram("decoder_w1_kernel", w1_kernel)
-                tf.contrib.summary.histogram("decoder_w1_bias", w1_bias)
-                tf.contrib.summary.histogram("decoder_w2_kernel", w2_kernel)
-                tf.contrib.summary.histogram("decoder_w2_bias", w2_bias)
-                tf.contrib.summary.histogram("decoder_v_kernel", v_kernel)
-                tf.contrib.summary.histogram("decoder_v_bias", v_bias)
+                tf.compat.v2.summary.histogram(name="decoder_w1_kernel", data=w1_kernel, step=tf.compat.v1.train.get_or_create_global_step())
+                tf.compat.v2.summary.histogram(name="decoder_w1_bias", data=w1_bias, step=tf.compat.v1.train.get_or_create_global_step())
+                tf.compat.v2.summary.histogram(name="decoder_w2_kernel", data=w2_kernel, step=tf.compat.v1.train.get_or_create_global_step())
+                tf.compat.v2.summary.histogram(name="decoder_w2_bias", data=w2_bias, step=tf.compat.v1.train.get_or_create_global_step())
+                tf.compat.v2.summary.histogram(name="decoder_v_kernel", data=v_kernel, step=tf.compat.v1.train.get_or_create_global_step())
+                tf.compat.v2.summary.histogram(name="decoder_v_bias", data=v_bias, step=tf.compat.v1.train.get_or_create_global_step())
 
-            tf.contrib.summary.histogram("decoder_projection_kernel", projection_kernel)
-            tf.contrib.summary.histogram("decoder_projection_bias", projection_bias)
+            tf.compat.v2.summary.histogram(name="decoder_projection_kernel", data=projection_kernel, step=tf.compat.v1.train.get_or_create_global_step())
+            tf.compat.v2.summary.histogram(name="decoder_projection_bias", data=projection_bias, step=tf.compat.v1.train.get_or_create_global_step())
 
             # gradient histograms
             for i in range(len(li["variables"])):
@@ -785,8 +785,8 @@ class Model(object):
                 gradient = li["gradients"][i]
 
                 try:
-                    tf.contrib.summary.histogram("{}_gradient".format(variable.name[:-2]), gradient)
-                    tf.contrib.summary.scalar("{}_gradient_mag".format(variable.name[:-2]), tf.norm(gradient))
+                    tf.compat.v2.summary.histogram(name="{}_gradient".format(variable.name[:-2]), data=gradient, step=tf.compat.v1.train.get_or_create_global_step())
+                    tf.compat.v2.summary.scalar(name="{}_gradient_mag".format(variable.name[:-2]), data=tf.norm(tensor=gradient), step=tf.compat.v1.train.get_or_create_global_step())
                 except Exception as e:
                     pass
 

@@ -117,7 +117,7 @@ def perform_parameter_search(model_class, flags,
 
     def apply_parameter_config(config):
         print("applying config: {}".format(config), flush=True)
-        tf.reset_default_graph()
+        tf.compat.v1.reset_default_graph()
 
         flags.learning_rate = config["learning_rate"]
         flags.persona_encoder_sizes = config["persona_encoder_sizes"]

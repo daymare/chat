@@ -374,7 +374,7 @@ def calculate_hidden_cos_similarity(hidden1, hidden2):
 
     normalized_a = tf.nn.l2_normalize(a)
     normalized_b = tf.nn.l2_normalize(b)
-    cos_similarity = tf.reduce_sum(tf.multiply(normalized_a, normalized_b))
+    cos_similarity = tf.reduce_sum(input_tensor=tf.multiply(normalized_a, normalized_b))
 
     return cos_similarity
 

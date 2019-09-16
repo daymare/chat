@@ -140,15 +140,15 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 def main(_):
     if config.allow_growth is True:
         # set eager to allow growth
-        gpu_options = tf.GPUOptions(allow_growth=True)
-        tf_config = tf.ConfigProto(gpu_options=gpu_options)
-        tf.enable_eager_execution(config=tf_config)
+        gpu_options = tf.compat.v1.GPUOptions(allow_growth=True)
+        tf_config = tf.compat.v1.ConfigProto(gpu_options=gpu_options)
+        tf.compat.v1.enable_eager_execution(config=tf_config)
 
         # set environment variable to force allow growth
         os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
     else:
         # enable eager normally
-        tf.enable_eager_execution()
+        tf.compat.v1.enable_eager_execution()
 
     # override checkpoint
     if config.checkpoint_dir == 'default':
@@ -281,5 +281,5 @@ def main(_):
 
 
 if __name__ == '__main__':
-    tf.app.run()
+    tf.compat.v1.app.run()
 
