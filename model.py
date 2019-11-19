@@ -239,7 +239,7 @@ class Decoder(tf.keras.Model):
                 self.batch_size)
 
 
-class Model(object):
+class Model(tf.keras.Model):
     def __init__(self, config, word2vec, id2word, word2id):
         self.load_config(config, word2vec, id2word, word2id)
 
@@ -283,10 +283,11 @@ class Model(object):
 
         # optimizer and loss function
         self.optimizer = optimizer = \
-            tf.compat.v1.train.AdamOptimizer(learning_rate=config.learning_rate)
+            tf.keras.optimizers.Adam(learning_rate=config.learning_rate)
 
         # global step and epoch
-        self.global_step = tf.compat.v1.train.get_or_create_global_step()
+        # TODO ensure global step is saved and loaded properly
+        self.global_step = tf.Variable(1, name="global_step")
         self.epoch = tf.Variable(0)
 
         # checkpoints
@@ -309,7 +310,7 @@ class Model(object):
                     global_step = self.global_step,
                     epoch = self.epoch)
 
-        self.checkpoint_manager = tf.contrib.checkpoint.CheckpointManager(
+        self.checkpoint_manager = tf.train.CheckpointManager(
                 self.checkpoint, directory=self.config.checkpoint_dir, max_to_keep=1)
         
         # inference
