@@ -56,7 +56,7 @@ flags.DEFINE_bool('use_persona_encoder', True,
         'whether to process persona information and feed to the decoder or not')
 flags.DEFINE_list('persona_encoder_sizes', '300, 300, 300',
         'size of each layer in the persona encoder')
-flags.DEFINE_list('decoder_sizes', '400, 400, 400',
+flags.DEFINE_list('decoder_sizes', '800, 400, 400',
         'size of each layer in the decoder')
 flags.DEFINE_float('max_gradient_norm',
         3.0, 'max gradient norm to clip to during training')
@@ -140,18 +140,8 @@ logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 def main(_):
-    # TODO remove old eager stuff
     if FLAGS.allow_growth is True:
-        # set eager to allow growth
-        gpu_options = tf.compat.v1.GPUOptions(allow_growth=True)
-        tf_config = tf.compat.v1.ConfigProto(gpu_options=gpu_options)
-        tf.compat.v1.enable_eager_execution(config=tf_config)
-
-        # set environment variable to force allow growth
-        os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-    else:
-        # enable eager normally
-        tf.compat.v1.enable_eager_execution()
+        raise Exception("allow growth is depricated")
 
     # override checkpoint
     if FLAGS.checkpoint_dir == 'default':
@@ -284,5 +274,5 @@ def main(_):
 
 
 if __name__ == '__main__':
-    tf.compat.v1.app.run()
-
+    print(tf.__version__)
+    app.run(main)
