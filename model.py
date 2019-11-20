@@ -356,7 +356,7 @@ class Model(tf.keras.Model):
         if self.config.save_summary == True:
             logdir = self.config.logdir
 
-            summary_writer = tf.compat.v2.summary.create_file_writer(logdir=logdir)
+            summary_writer = tf.summary.create_file_writer(logdir)
             summary_writer.set_as_default()
 
         last_enc_hidden = None
@@ -454,7 +454,7 @@ class Model(tf.keras.Model):
                 logging_info["gradients"] = gradients
 
                 if self.config.save_summary == True:
-                    self.record_summaries(logging_info)
+                    self.record_summaries(logging_info, summary_writer)
 
                 # print out progress
                 hundred_batch_time += time.time() - start
@@ -669,31 +669,42 @@ class Model(tf.keras.Model):
 
         return out_string, out_ids
     
-    def record_summaries(self, logging_info):
+    def record_summaries(self, logging_info, writer):
         li = logging_info
+        step = self.global_step
 
-        # record eval loss
-        if li["eval_loss"] > 0:
-            with (tf.compat.v2.summary.record_if(True)):
-                # record eval performance
-                print('Eval loss: {:.4f}'.format(li["eval_loss"].numpy()))
-                print('Eval perplexity: {:.4f}'.format(li["eval_ppl"].numpy()))
-                tf.compat.v2.summary.scalar(name='eval_loss', data=li["eval_loss"], step=tf.compat.v1.train.get_or_create_global_step())
-                tf.compat.v2.summary.scalar(name='eval_ppl', data=li["eval_ppl"], step=tf.compat.v1.train.get_or_create_global_step())
+        with writer.as_default():
+            # record eval loss
+            if li["eval_loss"] > 0:
+                print("eval loss: {:.4f}".format(li["eval_loss"].numpy()))
+                print("eval perplexity: {:.4f}".format(li["eval_ppl"].numpy()))
+                tf.summary.scalar("eval_loss", li["eval_loss"], step=step)
+                tf.summary.scalar("eval_ppl", li["eval_ppl"], step=step)
+
+            # record all other summaries
+            if self.global_step.numpy() % self.config.save_frequency == 0:
+                # loss and perplexity
+                tf.summary.scalar("loss", li["batch_loss"], step=step)
+                tf.summary.scalar("perplexity", li["batch_ppl"], step=step)
+
+                # enc hidden norm
+                norm = tf.norm(li["last_enc_hidden"][0])
+                tf.summary.scalar("enc_hidden_norm", norm, step=step)
+
+                # enc hidden cosine similarity
+                tf.summary.scalar("enc_hidden_cos_sim", 
+                        li["enc_hidden_cos_similarity"], step=step)
+
+                # text output
+                persona = li["personas"][0]
+
+                pass
+
+        # OLD STUFF
 
         # record all other summaries
         with (tf.contrib.summary.record_summaries_every_n_global_steps(
                     self.config.save_frequency)):
-            # loss and perplexity
-            tf.compat.v2.summary.scalar(name='loss', data=li["batch_loss"], step=tf.compat.v1.train.get_or_create_global_step())
-            tf.compat.v2.summary.scalar(name='perplexity', data=li["batch_ppl"], step=tf.compat.v1.train.get_or_create_global_step())
-
-            # enc hidden norm
-            tf.compat.v2.summary.scalar(name='enc_hidden_norm', data=tf.norm(tensor=li["last_enc_hidden"][0]), step=tf.compat.v1.train.get_or_create_global_step())
-
-            # enc hidden cosine similarity
-            tf.compat.v2.summary.scalar(name='enc_hidden_cos_sim', data=li["enc_hidden_cos_similarity"], step=tf.compat.v1.train.get_or_create_global_step())
-
             # text output
             text_meta = tf.compat.v1.SummaryMetadata()
             text_meta.plugin_data.plugin_name = "text"
