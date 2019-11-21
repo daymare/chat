@@ -696,7 +696,20 @@ class Model(tf.keras.Model):
                         li["enc_hidden_cos_similarity"], step=step)
 
                 # text output
+                ## extract outputs
+                # always use first sample in the batch
                 persona = li["personas"][0]
+                conversation = li["sentences"][0]
+                response = li["responses"][0]
+                model_response = li["model_response"][0]
+
+                persona_words = []
+                conversation_words = []
+                response_words = []
+                model_words = []
+
+                ### extract persona
+                persona_words
 
                 pass
 
@@ -705,10 +718,6 @@ class Model(tf.keras.Model):
         # record all other summaries
         with (tf.contrib.summary.record_summaries_every_n_global_steps(
                     self.config.save_frequency)):
-            # text output
-            text_meta = tf.compat.v1.SummaryMetadata()
-            text_meta.plugin_data.plugin_name = "text"
-
             # always take index 0 as our example output
             ## persona
             # personas shape: (batch size, max_persona_sentences, max_persona_sentence_len)
