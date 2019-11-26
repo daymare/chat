@@ -673,6 +673,46 @@ class Model(tf.keras.Model):
         li = logging_info
         step = self.global_step
 
+        def record_text(name, word_ids):
+            words = []
+            for word_id in word_ids:
+                if word_id.numpy() == 0:
+                    break
+                else:
+                    words.append(self.id2word[word_id])
+            text = tf.convert_to_tensor(" ".join(words))
+            tf.summary.text(name, text, step=self.global_step)
+
+        def record_layer_histograms(name, cell):
+            kernel = None
+            recurrent_kernel = None
+            bias = None
+
+            # extract variables depending on type of cell
+            variables = cell.variables
+            if len(variables) == 3:
+                # recurrent cell
+                kernel, recurrent_kernel, bias = variables
+            else:
+                # fully connected cell
+                kernel, bias = variables
+
+            # record kernels
+            if kernel is not None:
+                tf.summary.histogram(name + "_Kernel", kernel, step=self.global_step)
+            if recurrent_kernel is not None:
+                tf.summary.historam(name + "_RecurrentKernel", recurrent_kernel, 
+                    step=self.global_step)
+            if bias is not None:
+                tf.summary.histogram(name + "_Bias", bias, step=self.global_step)
+
+        def record_multilayer_histograms(name, cells):
+            for i in range(len(cells)):
+                cell = cells[i]
+
+                base_name = name + "layer" + str(i+1)
+                record_layer_histograms(base_name, cell)
+
         with writer.as_default():
             # record eval loss
             if li["eval_loss"] > 0:
@@ -696,122 +736,54 @@ class Model(tf.keras.Model):
                         li["enc_hidden_cos_similarity"], step=step)
 
                 # text output
-                ## extract outputs
                 # always use first sample in the batch
                 persona = li["personas"][0]
                 conversation = li["sentences"][0]
                 response = li["responses"][0]
                 model_response = li["model_response"][0]
 
-                persona_words = []
-                conversation_words = []
-                response_words = []
-                model_words = []
+                # unpack personas a bit
+                persona_ids = []
+                for sentence in persona:
+                    for word_id in sentence:
+                        if word_id.numpy() == 0:
+                            break
+                        else:
+                            persona_ids.append(word_id)
+                record_text("persona", persona_ids)
+                record_text("conversation", conversation)
+                record_text("response", response)
+                record_text("model_response", model_response)
+    
+                # model histograms
+                ## persona encoder
+                if self.config.use_persona_encoder is True:
+                    record_histograms(self.persona_encoder.cells, "PersonaEncoder")
+                ## encoder
+                # TODO make sure this works with the current architecture
+                record_multilayer_histograms(self.encoder.fw_cells, "Encoder_fw")
+                record_multilayer_histograms(self.encoder.bw_cells, "Encoder_bw")
+                tf.summary.histogram("encoder_final_hidden", li["last_enc_hidden"],
+                        step=self.global_step)
+                ## decoder
+                record_multilayer_histograms(self.decoder.cells, "Decoder")
+                record_layer_histogram("decoder_projection_layer", self.decoder.projection_layer)
+                record_layer_histogram("decoder_w1", self.decoder.W1)
+                record_layer_histogram("decoder_w2", self.decoder.W2)
+                record_layer_histogram("decoder_v", self.decoder.V)
 
-                ### extract persona
-                persona_words
+                # record gradient histogram
+                for i in range(len(li["variables"])):
+                    variable = li["variables"][i]
+                    gradient = li["gradients"][i]
+                    name = variable.name[:-2]
+                    norm = tf.norm(gradient)
 
-                pass
-
-        # OLD STUFF
-
-        # record all other summaries
-        with (tf.contrib.summary.record_summaries_every_n_global_steps(
-                    self.config.save_frequency)):
-            # always take index 0 as our example output
-            ## persona
-            # personas shape: (batch size, max_persona_sentences, max_persona_sentence_len)
-            persona = li["personas"][0] # (max_persona_sentences, max_persona_sentence_len)
-            persona_words = []
-            for sentence in persona:
-                for word in sentence:
-                    if word.numpy() == 0:
-                        break
-                    else:
-                        persona_words.append(self.id2word[word])
-            persona_text = tf.convert_to_tensor(value=" ".join(persona_words))
-            tf.compat.v2.summary.write(tag='persona', data=persona_text, metadata=text_meta, step=tf.compat.v1.train.get_or_create_global_step())
-
-            ## sentence
-            # sentences shape: (batch_size, max_conversation_words)
-            conversation = li["sentences"][0]
-            conversation_words = []
-            for i in range(len(conversation)):
-                word = conversation[i]
-                conversation_words.append(self.id2word[word])
-
-            conversation_text = tf.convert_to_tensor(value=" ".join(conversation_words))
-            tf.compat.v2.summary.write(tag='conversation', data=conversation_text, metadata=text_meta, step=tf.compat.v1.train.get_or_create_global_step())
-
-            ## response
-            # response shape: (batch_size, max_sentence_len)
-            response = li["responses"][0]
-            response_words = []
-            for word in response:
-                if word.numpy() == 0:
-                    break
-                else:
-                    response_words.append(self.id2word[word])
-            response_text = tf.convert_to_tensor(value=" ".join(response_words))
-            tf.compat.v2.summary.write(tag='response', data=response_text, metadata=text_meta, step=tf.compat.v1.train.get_or_create_global_step())
-
-            ## model response
-            model_words = []
-            for word in li["model_response"]:
-                if word == 0:
-                    break
-                else:
-                    model_words.append(self.id2word[word])
-            model_text = tf.convert_to_tensor(value=" ".join(model_words))
-            tf.compat.v2.summary.write(tag='model_response', data=model_text, metadata=text_meta, step=tf.compat.v1.train.get_or_create_global_step())
-
-            # model histograms
-            # encoder
-            def record_histograms(cells, name):
-                for i in range(len(cells)):
-                    cell = cells[i]
-                    kernel, recurrent_kernel, bias = cell.variables
-                    tf.compat.v2.summary.histogram(name=name + "layer" + str(i+1) + "_Kernel", data=kernel, step=tf.compat.v1.train.get_or_create_global_step())
-                    tf.compat.v2.summary.histogram(name=name + "layer" + str(i+1) + "_ReccurentKernel", data=recurrent_kernel, step=tf.compat.v1.train.get_or_create_global_step())
-                    tf.compat.v2.summary.histogram(name=name + "layer" + str(i+1) + "_Bias", data=bias, step=tf.compat.v1.train.get_or_create_global_step())
-            if self.config.use_persona_encoder is True:
-                record_histograms(self.persona_encoder.cells, "PersonaEncoder")
-            record_histograms(self.encoder.fw_cells, "Encoder_fw")
-            record_histograms(self.encoder.bw_cells, "Encoder_bw")
-            record_histograms(self.decoder.cells, "Decoder")
-
-            tf.compat.v2.summary.histogram(name="encoder_final_hidden",
-                    data=li["last_enc_hidden"], step=tf.compat.v1.train.get_or_create_global_step())
-
-            ## decoder histograms
-            projection_kernel, projection_bias = self.decoder.projection_layer.variables
-            if self.config.use_persona_encoder is True:
-                w1_kernel, w1_bias = self.decoder.W1.variables
-                w2_kernel, w2_bias = self.decoder.W2.variables
-                v_kernel, v_bias = self.decoder.V.variables
-
-                tf.compat.v2.summary.histogram(name="decoder_w1_kernel", data=w1_kernel, step=tf.compat.v1.train.get_or_create_global_step())
-                tf.compat.v2.summary.histogram(name="decoder_w1_bias", data=w1_bias, step=tf.compat.v1.train.get_or_create_global_step())
-                tf.compat.v2.summary.histogram(name="decoder_w2_kernel", data=w2_kernel, step=tf.compat.v1.train.get_or_create_global_step())
-                tf.compat.v2.summary.histogram(name="decoder_w2_bias", data=w2_bias, step=tf.compat.v1.train.get_or_create_global_step())
-                tf.compat.v2.summary.histogram(name="decoder_v_kernel", data=v_kernel, step=tf.compat.v1.train.get_or_create_global_step())
-                tf.compat.v2.summary.histogram(name="decoder_v_bias", data=v_bias, step=tf.compat.v1.train.get_or_create_global_step())
-
-            tf.compat.v2.summary.histogram(name="decoder_projection_kernel", data=projection_kernel, step=tf.compat.v1.train.get_or_create_global_step())
-            tf.compat.v2.summary.histogram(name="decoder_projection_bias", data=projection_bias, step=tf.compat.v1.train.get_or_create_global_step())
-
-            # gradient histograms
-            for i in range(len(li["variables"])):
-                variable = li["variables"][i]
-                gradient = li["gradients"][i]
-
-                try:
-                    tf.compat.v2.summary.histogram(name="{}_gradient".format(variable.name[:-2]), data=gradient, step=tf.compat.v1.train.get_or_create_global_step())
-                    tf.compat.v2.summary.scalar(name="{}_gradient_mag".format(variable.name[:-2]), data=tf.norm(tensor=gradient), step=tf.compat.v1.train.get_or_create_global_step())
-                except Exception as e:
-                    pass
-
-
-
-
+                    try:
+                        tf.summary.histogram("{}_gradient".format(name),
+                                gradient, step=self.global_step)
+                        tf.summary.scalar("{}_gradient_mag".format(name), norm, 
+                                step=self.global_step)
+                    except Exception as e:
+                        pass
 
