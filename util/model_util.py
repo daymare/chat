@@ -26,3 +26,11 @@ def initialize_multilayer_hidden_state(layer_sizes, batch_size):
 
 
 
+class Embedding(tf.keras.layers.Layer):
+    def __init__(self, embeddings):
+        self.embedding = tf.Variable(embeddings, trainable=True)
+
+    def call(self, inputs):
+        output = tf.nn.embedding_lookup(self.embeddings, inputs)
+        return output
+

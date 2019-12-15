@@ -12,6 +12,9 @@ from util.train_util import calculate_hidden_cos_similarity
 
 from util.model_util import gru
 from util.model_util import initialize_multilayer_hidden_state
+from util.model_util import Embedding
+
+import pdb
 
 
 class PersonaEncoder(tf.keras.Model):
@@ -241,14 +244,18 @@ class Decoder(tf.keras.Model):
 
 class Model(tf.keras.Model):
     def __init__(self, config, word2vec, id2word, word2id):
+        super(Model, self).__init__()
         self.load_config(config, word2vec, id2word, word2id)
 
         # word embeddings
+        """
         embedding = tf.keras.layers.Embedding(
                 input_dim=self.config.vocab_size,
                 output_dim=self.config.embedding_dim,
                 weights=word2vec,
                 trainable=True)
+        """
+        embedding = Embedding(word2vec)
 
         # get model sizes
         persona_encoder_sizes = [int(s_val) for s_val in config.persona_encoder_sizes]
